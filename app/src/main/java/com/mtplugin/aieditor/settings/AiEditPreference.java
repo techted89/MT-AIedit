@@ -165,16 +165,17 @@ public class AiEditPreference implements PluginPreference {
         // Register provider change listener to auto-set endpoint
         builder.onPreferenceChange((pluginUI, preferenceItem, newValue) -> {
             String key = preferenceItem.getKey();
-            if (Prefs.KEY_PROVIDER.equals(key) || "p2_provider".equals(key) || "p3_provider".equals(key)) {
-                String providerId = newValue != null ? newValue.toString() : "deepseek";
-                ProviderRegistry.Provider p = ProviderRegistry.findById(providerId);
-                if (p != null) {
-                    SharedPreferences prefs = context.getPreferences();
-                    String currentEndpoint = prefs.getString(providerKeyFor(providerKey), "");
-                    boolean isCustom = "custom".equals(providerId);
-                    if (!isCustom && (currentEndpoint == null || currentEndpoint.isEmpty())) {
-                        prefs.edit().putString(baseUrlKeyFor(providerKey), p.defaultBaseUrl).apply();
-                    }
+            String providerId = newValue != null ? newValue.toString() : "deepseek";
+            ProviderRegistry.Provider p = ProviderRegistry.findById(providerId);
+            if (p != null) {
+                SharedPreferences prefs = context.getPreferences();
+                String baseUrlKey = baseUrlKeyFor(providerKey);
+                String currentEndpoint = prefs.getString(baseUrlKey, "");
+                boolean isCustom = "custom".equals(providerId);
+                if (!isCustom && (currentEndpoint == null || currentEndpoint.isEmpty())) {
+                    prefs.edit().putString(baseUrlKey, p.defaultBaseUrl).apply();
+                } else if (isCustom) {
+                    prefs.edit().putString(baseUrlKey, "").apply();
                 }
             }
         });
@@ -195,7 +196,7 @@ public class AiEditPreference implements PluginPreference {
     private void addProviderList(Builder builder, String title, String key, String baseUrlKey, PluginContext context) {
         builder.addList(title, key)
                 .defaultValue("deepseek")
-                .summary("Select provider - endpoint auto-set when changed")
+                .summary("Select provider - endpoint auto-set to provider default")
                 .addItem(presetId("openai"), "openai")
                 .addItem(presetId("deepseek"), "deepseek")
                 .addItem(presetId("qwen"), "qwen")
