@@ -47,7 +47,7 @@ public class AiEditPreference implements PluginPreference {
 
         // ===== Profile 1 =====
         builder.addHeader("Profile 1 · Connection");
-        addProviderList(builder, "Provider", Prefs.KEY_PROVIDER);
+        addProviderList(builder, "Provider", Prefs.KEY_PROVIDER, Prefs.KEY_BASE_URL);
         builder.addInput("API Key", Prefs.KEY_API_KEY)
                 .hint("sk-... (Ollama local can be left empty)")
                 .summary("***********")
@@ -88,7 +88,7 @@ public class AiEditPreference implements PluginPreference {
 
         // ===== Profile 2 =====
         builder.addHeader("Profile 2 · Connection");
-        addProviderList(builder, "Provider", "p2_provider");
+        addProviderList(builder, "Provider", "p2_provider", "p2_base_url");
         builder.addInput("API Key", "p2_api_key")
                 .hint("sk-... (Ollama local can be left empty)")
                 .summary("***********")
@@ -123,7 +123,7 @@ public class AiEditPreference implements PluginPreference {
 
         // ===== Profile 3 =====
         builder.addHeader("Profile 3 · Connection");
-        addProviderList(builder, "Provider", "p3_provider");
+        addProviderList(builder, "Provider", "p3_provider", "p3_base_url");
         builder.addInput("API Key", "p3_api_key")
                 .hint("sk-... (Ollama local can be left empty)")
                 .summary("***********")
@@ -227,8 +227,8 @@ public class AiEditPreference implements PluginPreference {
                 .onClick((pluginUI, item) -> AboutDialog.show(pluginUI));
     }
 
-    /** Provider dropdown (shared by profiles) */
-    private void addProviderList(Builder builder, String title, String key) {
+    /** Provider dropdown (shared by profiles) - auto-sets endpoint when provider changes */
+    private void addProviderList(Builder builder, String title, String key, String baseUrlKey) {
         builder.addList(title, key)
                 .defaultValue("deepseek")
                 .summary("After switching, dialog will automatically bring up common models")
@@ -243,7 +243,23 @@ public class AiEditPreference implements PluginPreference {
                 .addItem(presetId("ollama"), "ollama")
                 .addItem(presetId("claude"), "claude")
                 .addItem(presetId("gemini"), "gemini")
-                .addItem(presetId("custom"), "custom");
+                .addItem(presetId("custom"), "custom")
+                .onItemSelected((pluginUI, item) -> {
+                    String selectedProvider = item.getValue();
+                    ProviderRegistry.Provider p = ProviderRegistry.findById(selectedProvider);
+                    if (p != null) {
+                        SharedPreferences prefs = pluginUI.getContext().getPreferences();
+                        String currentEndpoint = prefs.getString(baseUrlKey, "");
+                        // Auto-set endpoint for known providers if user hasn't customized it
+                        boolean isCustom = "custom".equals(selectedProvider);
+                        if (!isCustom && (currentEndpoint == null || currentEndpoint.isEmpty())) {
+                            prefs.edit().putString(baseUrlKey, p.defaultBaseUrl).apply();
+                            pluginUI.showToast("Endpoint auto-set to " + p.defaultBaseUrl);
+                        } else if (isCustom) {
+                            pluginUI.showToast("Custom provider - enter your own endpoint");
+                        }
+                    }
+                });
     }
 
     /** Click to apply system prompt preset */
