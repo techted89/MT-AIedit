@@ -48,7 +48,7 @@ public class AiEditPreference implements PluginPreference {
 
         // ===== Profile 1 =====
         builder.addHeader("Profile 1 · Connection");
-        addProviderList(builder, "Provider", Prefs.KEY_PROVIDER);
+        addProviderList(builder, "Provider", Prefs.KEY_PROVIDER, Prefs.KEY_BASE_URL, context);
         builder.addInput("API Key", Prefs.KEY_API_KEY)
                 .hint("sk-... (Ollama local can be left empty)")
                 .summary("***********")
@@ -66,7 +66,7 @@ public class AiEditPreference implements PluginPreference {
 
         // ===== Profile 2 =====
         builder.addHeader("Profile 2 · Connection");
-        addProviderList(builder, "Provider", "p2_provider");
+        addProviderList(builder, "Provider", "p2_provider", "p2_base_url", context);
         builder.addInput("API Key", "p2_api_key")
                 .hint("sk-... (Ollama local can be left empty)")
                 .summary("***********")
@@ -80,7 +80,7 @@ public class AiEditPreference implements PluginPreference {
 
         // ===== Profile 3 =====
         builder.addHeader("Profile 3 · Connection");
-        addProviderList(builder, "Provider", "p3_provider");
+        addProviderList(builder, "Provider", "p3_provider", "p3_base_url", context);
         builder.addInput("API Key", "p3_api_key")
                 .hint("sk-... (Ollama local can be left empty)")
                 .summary("***********")
@@ -161,13 +161,41 @@ public class AiEditPreference implements PluginPreference {
         builder.addText("About & Community")
                 .summary("Version info · Website / QQ Channel / QQ Group (click to view)")
                 .onClick((pluginUI, item) -> AboutDialog.show(pluginUI));
+
+        // Register provider change listener to auto-set endpoint
+        builder.onPreferenceChange((pluginUI, preferenceItem, newValue) -> {
+            String key = preferenceItem.getKey();
+            if (Prefs.KEY_PROVIDER.equals(key) || "p2_provider".equals(key) || "p3_provider".equals(key)) {
+                String providerId = newValue != null ? newValue.toString() : "deepseek";
+                ProviderRegistry.Provider p = ProviderRegistry.findById(providerId);
+                if (p != null) {
+                    SharedPreferences prefs = context.getPreferences();
+                    String currentEndpoint = prefs.getString(providerKeyFor(providerKey), "");
+                    boolean isCustom = "custom".equals(providerId);
+                    if (!isCustom && (currentEndpoint == null || currentEndpoint.isEmpty())) {
+                        prefs.edit().putString(baseUrlKeyFor(providerKey), p.defaultBaseUrl).apply();
+                    }
+                }
+            }
+        });
+    }
+
+    private String providerKeyFor(String providerKey) {
+        return providerKey;
+    }
+
+    private String baseUrlKeyFor(String providerKey) {
+        if (Prefs.KEY_PROVIDER.equals(providerKey)) return Prefs.KEY_BASE_URL;
+        if ("p2_provider".equals(providerKey)) return "p2_base_url";
+        if ("p3_provider".equals(providerKey)) return "p3_base_url";
+        return providerKey + "_base_url";
     }
 
     /** Provider dropdown (shared by profiles) */
-    private void addProviderList(Builder builder, String title, String key) {
+    private void addProviderList(Builder builder, String title, String key, String baseUrlKey, PluginContext context) {
         builder.addList(title, key)
                 .defaultValue("deepseek")
-                .summary("Select provider")
+                .summary("Select provider - endpoint auto-set when changed")
                 .addItem(presetId("openai"), "openai")
                 .addItem(presetId("deepseek"), "deepseek")
                 .addItem(presetId("qwen"), "qwen")
@@ -194,7 +222,6 @@ public class AiEditPreference implements PluginPreference {
         for (String m : models) {
             mlb.addItem(m, m);
         }
-        // Ensure current model is selectable even if not in fetched list
         if (!models.contains(currentModel) && currentModel != null && !currentModel.isEmpty()) {
             mlb.addItem(currentModel, currentModel);
         }
@@ -250,15 +277,16 @@ public class AiEditPreference implements PluginPreference {
 
         pluginUI.showToast("Fetching models from " + provider.name + "...");
 
-        ProviderRegistry.ModelFetchResult result = ProviderRegistry.fetchModelsFromEndpoint(providerId, endpoint, apiKey);
-        if (!result.success) {
-            pluginUI.showToast(result.errorMessage);
-            return;
-        }
-
-        ProviderRegistry.putCachedModels(prefs, providerId, result.models);
-        pluginUI.showToast("Fetched " + result.models.size() + " models for " + provider.name
-                + ". They are now available in the model dropdown.");
+        new Thread(() -> {
+            ProviderRegistry.ModelFetchResult result = ProviderRegistry.fetchModelsFromEndpoint(providerId, endpoint, apiKey);
+            if (!result.success) {
+                pluginUI.showToast(result.errorMessage);
+                return;
+            }
+            ProviderRegistry.putCachedModels(prefs, providerId, result.models);
+            pluginUI.showToast("Fetched " + result.models.size() + " models for " + provider.name
+                    + ". They are now available in the model dropdown.");
+        }).start();
     }
 
     /** Test if the provider connection works for a profile's current settings */
