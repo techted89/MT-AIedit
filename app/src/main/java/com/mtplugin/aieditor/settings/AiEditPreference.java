@@ -229,6 +229,11 @@ public class AiEditPreference implements PluginPreference {
 
     /** Provider dropdown (shared by profiles) - auto-sets endpoint when provider changes */
     private void addProviderList(Builder builder, String title, String key, String baseUrlKey) {
+        // Provider IDs in the same order as addItem() calls below
+        final String[] providerIds = {
+                "openai", "deepseek", "qwen", "kimi", "glm", "siliconflow",
+                "openrouter", "nim", "ollama", "claude", "gemini", "custom"
+        };
         builder.addList(title, key)
                 .defaultValue("deepseek")
                 .summary("After switching, dialog will automatically bring up common models")
@@ -244,8 +249,11 @@ public class AiEditPreference implements PluginPreference {
                 .addItem(presetId("claude"), "claude")
                 .addItem(presetId("gemini"), "gemini")
                 .addItem(presetId("custom"), "custom")
-                .onItemSelected((pluginUI, item) -> {
-                    String selectedProvider = item.getValue();
+                .onItemSelected((spinner, position) -> {
+                    if (position < 0 || position >= providerIds.length) {
+                        return;
+                    }
+                    String selectedProvider = providerIds[position];
                     ProviderRegistry.Provider p = ProviderRegistry.findById(selectedProvider);
                     if (p != null) {
                         SharedPreferences prefs = pluginUI.getContext().getPreferences();
