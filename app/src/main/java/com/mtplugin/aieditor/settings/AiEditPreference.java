@@ -11,8 +11,7 @@ import bin.mt.plugin.api.PluginContext;
 import bin.mt.plugin.api.preference.PluginPreference;
 import bin.mt.plugin.api.ui.PluginUI;
 
-
-
+import java.util.List;
 /**
  * Plugin main settings interface (PluginPreference).
  *
@@ -63,16 +62,16 @@ public class AiEditPreference implements PluginPreference {
         String providerId1 = prefs1.getString(Prefs.KEY_PROVIDER, "deepseek");
         java.util.List<String> models1 = ProviderRegistry.getAllModels(prefs1, ProviderRegistry.findById(providerId1));
         String currentModel1 = prefs1.getString(Prefs.KEY_MODEL, "deepseek-chat");
-        builder.addList("Default model", Prefs.KEY_MODEL)
+        var mlb1 = builder.addList("Default model", Prefs.KEY_MODEL)
                 .defaultValue("deepseek-chat")
                 .summary("Select or type a model name");
         for (String m : models1) {
-            builder.addItem(m, m);
+            mlb1.addItem(m, m);
         }
         // Ensure current model is selectable even if not in fetched list
-        boolean currentInList = models1.contains(currentModel1);
-        if (!currentInList && currentModel1 != null && !currentModel1.isEmpty()) {
-            builder.addItem(currentModel1, currentModel1);
+        boolean currentInList1 = models1.contains(currentModel1);
+        if (!currentInList1 && currentModel1 != null && !currentModel1.isEmpty()) {
+            mlb1.addItem(currentModel1, currentModel1);
         }
         // Refresh model list for Profile 1
         builder.addText("Refresh model list (Profile 1)")
@@ -100,15 +99,15 @@ public class AiEditPreference implements PluginPreference {
         String providerId2 = prefs2.getString("p2_provider", "deepseek");
         java.util.List<String> models2 = ProviderRegistry.getAllModels(prefs2, ProviderRegistry.findById(providerId2));
         String currentModel2 = prefs2.getString("p2_model", "deepseek-chat");
-        builder.addList("Model", "p2_model")
+        var mlb2 = builder.addList("Model", "p2_model")
                 .defaultValue("deepseek-chat")
                 .summary("Select or type a model name");
         for (String m : models2) {
-            builder.addItem(m, m);
+            mlb2.addItem(m, m);
         }
         boolean currentInList2 = models2.contains(currentModel2);
         if (!currentInList2 && currentModel2 != null && !currentModel2.isEmpty()) {
-            builder.addItem(currentModel2, currentModel2);
+            mlb2.addItem(currentModel2, currentModel2);
         }
         // Refresh model list for Profile 2
         builder.addText("Refresh model list (Profile 2)")
@@ -132,15 +131,15 @@ public class AiEditPreference implements PluginPreference {
         String providerId3 = prefs3.getString("p3_provider", "deepseek");
         java.util.List<String> models3 = ProviderRegistry.getAllModels(prefs3, ProviderRegistry.findById(providerId3));
         String currentModel3 = prefs3.getString("p3_model", "deepseek-chat");
-        builder.addList("Model", "p3_model")
+        var mlb3 = builder.addList("Model", "p3_model")
                 .defaultValue("deepseek-chat")
                 .summary("Select or type a model name");
         for (String m : models3) {
-            builder.addItem(m, m);
+            mlb3.addItem(m, m);
         }
         boolean currentInList3 = models3.contains(currentModel3);
         if (!currentInList3 && currentModel3 != null && !currentModel3.isEmpty()) {
-            builder.addItem(currentModel3, currentModel3);
+            mlb3.addItem(currentModel3, currentModel3);
         }
         // Refresh model list for Profile 3
         builder.addText("Refresh model list (Profile 3)")
