@@ -59,9 +59,12 @@ public final class ProviderRegistry {
                             "Qwen/Qwen2.5-72B-Instruct", "THUDM/glm-4-9b-chat")),
             new Provider("openrouter", "OpenRouter", Protocol.OPENAI,
                     "https://openrouter.ai/api/v1",
-                    Arrays.asList("openrouter/auto", "anthropic/claude-3.5-sonnet",
-                            "openai/gpt-4o", "google/gemini-2.5-pro",
-                            "deepseek/deepseek-chat", "meta-llama/llama-3.1-405b-instruct")),
+                    Arrays.asList("openrouter/auto:free", "meta-llama/llama-3.1-8b-instruct:free",
+                            "microsoft/phi-3-mini-128k-instruct:free", "google/gemma-2-9b-it:free",
+                            "qwen/qwen-2.5-7b-instruct:free", "mistralai/mistral-7b-instruct:free",
+                            "anthropic/claude-3-haiku", "openai/gpt-4o-mini",
+                            "deepseek/deepseek-chat", "openai/gpt-4o",
+                            "google/gemini-2.5-flash", "meta-llama/llama-3.1-405b-instruct")),
             new Provider("ollama", "Ollama (Local)", Protocol.OPENAI,
                     "http://192.168.1.100:11434/v1",
                     Arrays.asList("llama3.1", "qwen2.5", "deepseek-r1", "gemma2")),
@@ -80,6 +83,7 @@ public final class ProviderRegistry {
 
     // Alibaba Cloud Bailian (Qwen OpenAI-compatible), Zhipu, etc. are all built-in;
     // any other OpenAI-compatible gateway/proxy, select "Custom" and manually fill the endpoint.
+    // OpenRouter free models use the ":free" suffix (e.g. "meta-llama/llama-3.1-8b-instruct:free").
 
     private static final Provider CUSTOM = findByIdInternal("custom");
 
