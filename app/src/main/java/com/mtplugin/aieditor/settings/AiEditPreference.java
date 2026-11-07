@@ -17,8 +17,8 @@ import java.util.List;
  * Plugin main settings interface (PluginPreference).
  *
  * Structure:
- *  - Config profile: which profile to use by default (p1/p2/p3), also switchable in dialog
- *  - Profile 1/2/3 connection config: Provider + API Key + Endpoint + Model (p1 reuses old global key, compatible with old versions)
+ *  - Config profile: which profile to use by default (p1/p2/p3)
+ *  - Profile 1/2/3 connection config: Provider + API Key + Endpoint + Model
  *  - Generation parameters: temperature / max_tokens / timeout (global)
  *  - System prompt presets: one-click apply built-in templates
  *
@@ -48,7 +48,7 @@ public class AiEditPreference implements PluginPreference {
 
         // ===== Profile 1 =====
         builder.addHeader("Profile 1 · Connection");
-        addProviderList(builder, "Provider", Prefs.KEY_PROVIDER, context);
+        addProviderList(builder, "Provider", Prefs.KEY_PROVIDER, Prefs.KEY_BASE_URL, context);
         builder.addInput("API Key", Prefs.KEY_API_KEY)
                 .hint("sk-... (Ollama local can be left empty)")
                 .summary("***********")
@@ -66,7 +66,7 @@ public class AiEditPreference implements PluginPreference {
 
         // ===== Profile 2 =====
         builder.addHeader("Profile 2 · Connection");
-        addProviderList(builder, "Provider", "p2_provider", context);
+        addProviderList(builder, "Provider", "p2_provider", "p2_base_url", context);
         builder.addInput("API Key", "p2_api_key")
                 .hint("sk-... (Ollama local can be left empty)")
                 .summary("***********")
@@ -80,7 +80,7 @@ public class AiEditPreference implements PluginPreference {
 
         // ===== Profile 3 =====
         builder.addHeader("Profile 3 · Connection");
-        addProviderList(builder, "Provider", "p3_provider", context);
+        addProviderList(builder, "Provider", "p3_provider", "p3_base_url", context);
         builder.addInput("API Key", "p3_api_key")
                 .hint("sk-... (Ollama local can be left empty)")
                 .summary("***********")
@@ -164,7 +164,7 @@ public class AiEditPreference implements PluginPreference {
     }
 
     /** Provider dropdown (shared by profiles) - auto-sets endpoint when provider changes */
-    private void addProviderList(Builder builder, String title, String key, PluginContext context) {
+    private void addProviderList(Builder builder, String title, String key, String baseUrlKey, PluginContext context) {
         // Provider IDs in the same order as addItem() calls below
         final String[] providerIds = {
                 "openai", "deepseek", "qwen", "kimi", "glm", "siliconflow",
@@ -181,13 +181,13 @@ public class AiEditPreference implements PluginPreference {
                     ProviderRegistry.Provider p = ProviderRegistry.findById(selectedProvider);
                     if (p != null) {
                         SharedPreferences prefs = context.getPreferences();
-                        String currentEndpoint = prefs.getString(key, "");
+                        String currentEndpoint = prefs.getString(baseUrlKey, "");
                         // Auto-set endpoint for known providers if user hasn't customized it
                         boolean isCustom = "custom".equals(selectedProvider);
                         if (!isCustom && (currentEndpoint == null || currentEndpoint.isEmpty())) {
-                            prefs.edit().putString(key, p.defaultBaseUrl).apply();
+                            prefs.edit().putString(baseUrlKey, p.defaultBaseUrl).apply();
                         } else if (isCustom) {
-                            prefs.edit().putString(key, "").apply();
+                            prefs.edit().putString(baseUrlKey, "").apply();
                         }
                     }
                 })
