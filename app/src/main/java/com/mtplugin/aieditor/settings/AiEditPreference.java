@@ -80,7 +80,6 @@ public class AiEditPreference implements PluginPreference {
         // Verify connection for Profile 1
         builder.addText("Verify connection (Profile 1)")
                 .summary("Test API key, endpoint, and model are working")
-                .textColor(0xFF4CAF50)
                 .onClick((pluginUI, item) -> testConnectionForProfile(pluginUI, Prefs.KEY_PROVIDER,
                         Prefs.KEY_API_KEY, Prefs.KEY_BASE_URL, Prefs.KEY_MODEL));
         builder.addSwitch("Show token usage", Prefs.KEY_SHOW_TOKENS)
@@ -121,7 +120,6 @@ public class AiEditPreference implements PluginPreference {
         // Verify connection for Profile 2
         builder.addText("Verify connection (Profile 2)")
                 .summary("Test API key, endpoint, and model are working")
-                .textColor(0xFF4CAF50)
                 .onClick((pluginUI, item) -> testConnectionForProfile(pluginUI, "p2_provider",
                         "p2_api_key", "p2_base_url", "p2_model"));
 
@@ -158,7 +156,6 @@ public class AiEditPreference implements PluginPreference {
         // Verify connection for Profile 3
         builder.addText("Verify connection (Profile 3)")
                 .summary("Test API key, endpoint, and model are working")
-                .textColor(0xFF4CAF50)
                 .onClick((pluginUI, item) -> testConnectionForProfile(pluginUI, "p3_provider",
                         "p3_api_key", "p3_base_url", "p3_model"));
 
