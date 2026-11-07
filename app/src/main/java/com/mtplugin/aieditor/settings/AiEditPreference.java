@@ -262,7 +262,7 @@ public class AiEditPreference implements PluginPreference {
 
         pluginUI.showToast("Fetching models from " + provider.name + "...");
 
-        List<String> models = ProviderRegistry.fetchModelsFromEndpoint(endpoint, apiKey);
+        java.util.List<String> models = ProviderRegistry.fetchModelsFromEndpoint(endpoint, apiKey);
         if (models == null || models.isEmpty()) {
             pluginUI.showToast("Failed to fetch models from " + provider.name
                     + ". Check your endpoint and API key.");
