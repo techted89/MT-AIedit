@@ -1,0 +1,92 @@
+# Remote runner build: compiles the MT-AIedit .mtp plugin package on a self-hosted runner
+# Usage: Repository Actions tab -> manually run "Build MTP (Remote Runner)", or auto-triggered on push
+# Artifacts: Actions -> This run -> Artifacts -> mtai-editor-mtp.zip download
+# Release: Auto-creates a draft GitHub Release on tagged pushes
+
+name: Build MTP (Remote Runner)
+
+on:
+  push:
+    branches: [ main, master ]
+    tags: [ 'v*' ]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version override (e.g. v1.3.11)'
+        required: false
+        default: ''
+  schedule:
+    - cron: '0 2 * * *'  # Daily build at 02:00 UTC
+
+jobs:
+  build:
+    runs-on: self-hosted
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          api-level: 36
+          target: android-36
+          build-tools: 36.0.0
+
+      - name: Install Android SDK 36 (fallback)
+        run: |
+          sdkmanager "platforms;android-36" "build-tools;36.0.0" || echo "AGP will auto-download"
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Grant execute permission to gradlew
+        run: chmod +x gradlew
+
+      - name: Build MTP plugin (release)
+        run: ./gradlew app:packageReleaseMtp --no-daemon
+
+      - name: Upload MTP artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mtai-editor-mtp
+          path: app/build/outputs/mt-plugin/*.mtp
+          if-no-files-found: error
+          retention-days: 30
+
+  release:
+    needs: build
+    runs-on: self-hosted
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download MTP artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: mtai-editor-mtp
+          path: dist/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.mtp
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
