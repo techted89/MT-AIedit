@@ -218,26 +218,49 @@ public final class ProviderRegistry {
     }
 
     /**
-     * Fetch available models from a provider's /v1/models endpoint.
-     * Only works for OpenAI-compatible protocol providers.
-     * Returns the list of model IDs, or null on failure.
+     * Fetch available models from a provider's models endpoint.
+     * Different providers use different endpoints and auth schemes:
+     *   - OpenAI-compatible (OpenAI, DeepSeek, Qwen, Kimi, GLM, SiliconFlow,
+     *     OpenRouter, NVIDIA NIM, Ollama, Custom): GET {baseUrl}/models
+     *   - Claude (Anthropic): no public models endpoint → returns null
+     *   - Gemini: GET {baseUrl}/models?key={apiKey}
      *
-     * @param baseUrl   Provider base URL (e.g. https://integrate.api.nvidia.com/v1)
-     * @param apiKey    API key (may be empty for providers that don't require one)
+     * @param providerId Provider ID (e.g. "openrouter", "nim", "gemini")
+     * @param baseUrl    Provider base URL (e.g. https://integrate.api.nvidia.com/v1)
+     * @param apiKey     API key (may be empty for providers that don't require one)
+     * @return List of model IDs, or null on failure
      */
     @Nullable
-    public static List<String> fetchModelsFromEndpoint(String baseUrl, String apiKey) {
+    public static List<String> fetchModelsFromEndpoint(String providerId, String baseUrl, String apiKey) {
         if (baseUrl == null || baseUrl.isEmpty()) {
             return null;
         }
-        String url = baseUrl.trim();
-        while (url.endsWith("/")) {
-            url = url.substring(0, url.length() - 1);
+
+        // Build the correct models URL for each provider family
+        String url;
+        if ("gemini".equals(providerId)) {
+            // Gemini: models endpoint uses query param for API key
+            url = baseUrl.trim();
+            while (url.endsWith("/")) {
+                url = url.substring(0, url.length() - 1);
+            }
+            url += "/models?key=" + (apiKey != null ? apiKey : "");
+        } else if ("claude".equals(providerId)) {
+            // Anthropic Claude has no public models listing endpoint
+            return null;
+        } else {
+            // OpenAI-compatible: OpenAI, DeepSeek, Qwen, Kimi, GLM, SiliconFlow,
+            // OpenRouter, NVIDIA NIM, Ollama, Custom
+            url = baseUrl.trim();
+            while (url.endsWith("/")) {
+                url = url.substring(0, url.length() - 1);
+            }
+            url += "/models";
         }
-        url += "/models";
 
         Request.Builder rb = new Request.Builder().url(url);
-        if (apiKey != null && !apiKey.isEmpty()) {
+        if (!"gemini".equals(providerId) && apiKey != null && !apiKey.isEmpty()) {
+            // Gemini passes key via query param; others via Bearer header
             rb.header("Authorization", "Bearer " + apiKey);
         }
 
