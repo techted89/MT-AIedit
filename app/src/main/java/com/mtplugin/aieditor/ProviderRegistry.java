@@ -218,22 +218,45 @@ public final class ProviderRegistry {
     }
 
     /**
+     * Result of fetching models from a provider endpoint.
+     */
+    public static final class ModelFetchResult {
+        public final boolean success;
+        public final List<String> models;
+        public final String errorMessage;
+
+        private ModelFetchResult(boolean success, List<String> models, String errorMessage) {
+            this.success = success;
+            this.models = models;
+            this.errorMessage = errorMessage;
+        }
+
+        public static ModelFetchResult success(List<String> models) {
+            return new ModelFetchResult(true, models, null);
+        }
+
+        public static ModelFetchResult error(String message) {
+            return new ModelFetchResult(false, null, message);
+        }
+    }
+
+    /**
      * Fetch available models from a provider's models endpoint.
      * Different providers use different endpoints and auth schemes:
      *   - OpenAI-compatible (OpenAI, DeepSeek, Qwen, Kimi, GLM, SiliconFlow,
      *     OpenRouter, NVIDIA NIM, Ollama, Custom): GET {baseUrl}/models
-     *   - Claude (Anthropic): no public models endpoint → returns null
+     *   - Claude (Anthropic): no public models endpoint → error
      *   - Gemini: GET {baseUrl}/models?key={apiKey}
      *
      * @param providerId Provider ID (e.g. "openrouter", "nim", "gemini")
      * @param baseUrl    Provider base URL (e.g. https://integrate.api.nvidia.com/v1)
-     * @param apiKey     API key (may be empty for providers that don't require one)
-     * @return List of model IDs, or null on failure
+     * @param apiKey     API key (required for most OpenAI-compatible providers)
+     * @return ModelFetchResult with either the model list or an error message
      */
-    @Nullable
-    public static List<String> fetchModelsFromEndpoint(String providerId, String baseUrl, String apiKey) {
+    @NonNull
+    public static ModelFetchResult fetchModelsFromEndpoint(String providerId, String baseUrl, String apiKey) {
         if (baseUrl == null || baseUrl.isEmpty()) {
-            return null;
+            return ModelFetchResult.error("No endpoint configured");
         }
 
         // Build the correct models URL for each provider family
@@ -247,7 +270,7 @@ public final class ProviderRegistry {
             url += "/models?key=" + (apiKey != null ? apiKey : "");
         } else if ("claude".equals(providerId)) {
             // Anthropic Claude has no public models listing endpoint
-            return null;
+            return ModelFetchResult.error("Claude does not provide a public models endpoint");
         } else {
             // OpenAI-compatible: OpenAI, DeepSeek, Qwen, Kimi, GLM, SiliconFlow,
             // OpenRouter, NVIDIA NIM, Ollama, Custom
@@ -262,32 +285,54 @@ public final class ProviderRegistry {
         if (!"gemini".equals(providerId) && apiKey != null && !apiKey.isEmpty()) {
             // Gemini passes key via query param; others via Bearer header
             rb.header("Authorization", "Bearer " + apiKey);
+        } else if (!"gemini".equals(providerId) && (apiKey == null || apiKey.isEmpty())) {
+            // OpenAI-compatible providers (including OpenRouter) require an API key
+            return ModelFetchResult.error("API key required - please configure it in Settings first");
         }
 
         try (Response response = HTTP_CLIENT.newCall(rb.build()).execute()) {
-            if (!response.isSuccessful() || response.body() == null) {
-                return null;
-            }
-            String body = response.body().string();
-            JSONObject obj = new JSONObject(body);
-            JSONArray data = ApiUtils.optArray(obj, "data");
-            if (data == null) {
-                return null;
-            }
-            List<String> models = new ArrayList<>(data.size());
-            for (int i = 0; i < data.size(); i++) {
-                JSONObject item = ApiUtils.optObjectAt(data, i);
-                if (item != null) {
-                    String id = ApiUtils.optString(item, "id");
-                    if (id != null && !id.isEmpty()) {
-                        models.add(id);
+            if (response.isSuccessful() && response.body() != null) {
+                String body = response.body().string();
+                JSONObject obj = new JSONObject(body);
+                JSONArray data = ApiUtils.optArray(obj, "data");
+                if (data == null) {
+                    return ModelFetchResult.error("Unexpected response format from " + providerId);
+                }
+                List<String> models = new ArrayList<>(data.size());
+                for (int i = 0; i < data.size(); i++) {
+                    JSONObject item = ApiUtils.optObjectAt(data, i);
+                    if (item != null) {
+                        String id = ApiUtils.optString(item, "id");
+                        if (id != null && !id.isEmpty()) {
+                            models.add(id);
+                        }
                     }
                 }
+                Collections.sort(models);
+                return models.isEmpty() ? ModelFetchResult.error("No models returned by " + providerId)
+                        : ModelFetchResult.success(models);
+            } else {
+                int code = response.code();
+                String body = "";
+                try {
+                    if (response.body() != null) {
+                        body = response.body().string();
+                    }
+                } catch (IOException ignored) {
+                }
+                if (code == 401 || code == 403) {
+                    return ModelFetchResult.error("Invalid API key for " + providerId
+                            + " - please check your API key in Settings");
+                } else if (code == 404) {
+                    return ModelFetchResult.error("Endpoint not found for " + providerId
+                            + " - check your base URL in Settings");
+                } else {
+                    return ModelFetchResult.error("HTTP " + code + " from " + providerId
+                            + (body.isEmpty() ? "" : ": " + body));
+                }
             }
-            Collections.sort(models);
-            return models.isEmpty() ? null : models;
-        } catch (Exception ignored) {
-            return null;
+        } catch (Exception e) {
+            return ModelFetchResult.error("Connection error: " + (e.getMessage() != null ? e.getMessage() : e.toString()));
         }
     }
 

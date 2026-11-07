@@ -770,9 +770,9 @@ public final class AiEditDialog {
                     String ep = (bu != null && !bu.isEmpty()) ? bu : ProviderRegistry.findById(pid).defaultBaseUrl;
                     pluginUI.showToast("Fetching models from " + pid + "...");
                     new Thread(() -> {
-                        java.util.List<String> fetched = ProviderRegistry.fetchModelsFromEndpoint(pid, ep, ak);
-                        if (fetched != null && !fetched.isEmpty()) {
-                            ProviderRegistry.putCachedModels(prefs, pid, fetched);
+                        ProviderRegistry.ModelFetchResult result = ProviderRegistry.fetchModelsFromEndpoint(pid, ep, ak);
+                        if (result.success) {
+                            ProviderRegistry.putCachedModels(prefs, pid, result.models);
                             // Rebuild model list with fetched models
                             java.util.List<String> allModels = ProviderRegistry.getAllModels(prefs, ProviderRegistry.findById(pid));
                             PluginSpinner ms = modelSpinnerRef[0];
@@ -784,10 +784,9 @@ public final class AiEditDialog {
                                 } catch (Throwable ignored) {
                                 }
                             }
-                            pluginUI.showToast("Fetched " + fetched.size() + " models for " + pid);
+                            pluginUI.showToast("Fetched " + result.models.size() + " models for " + pid);
                         } else {
-                            pluginUI.showToast("Failed to fetch models from " + pid
-                                    + ". Check your endpoint and API key.");
+                            pluginUI.showToast(result.errorMessage);
                         }
                     }).start();
                 })
