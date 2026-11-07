@@ -52,8 +52,8 @@ dependencies {
 mtPlugin {
     pushTarget = "auto"
     pluginID = "com.tec.aiedit"
-    versionCode = 38
-    versionName = "v1.3.24"
+    versionCode = 39
+    versionName = "v1.3.25"
     name = "{plugin_name}"
     description = "{plugin_description}"
     mainPreference = "com.mtplugin.aieditor.settings.AiEditPreference"
