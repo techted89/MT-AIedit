@@ -21,6 +21,8 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
 
+import com.mtplugin.aieditor.api.ApiUtils;
+
 /**
  * Common AI provider preset registry.
  *
@@ -245,15 +247,15 @@ public final class ProviderRegistry {
             }
             String body = response.body().string();
             JSONObject obj = new JSONObject(body);
-            JSONArray data = obj.optArray("data");
+            JSONArray data = ApiUtils.optArray(obj, "data");
             if (data == null) {
                 return null;
             }
             List<String> models = new ArrayList<>(data.size());
             for (int i = 0; i < data.size(); i++) {
-                JSONObject item = data.optObjectAt(i);
+                JSONObject item = ApiUtils.optObjectAt(data, i);
                 if (item != null) {
-                    String id = item.optString("id");
+                    String id = ApiUtils.optString(item, "id");
                     if (id != null && !id.isEmpty()) {
                         models.add(id);
                     }

@@ -651,7 +651,6 @@ public final class AiEditDialog {
 
         final int[] profileSel = {profileDefault};
         final int[] providerSel = {providerDefault};
-        final String[] selectedModel = {initModel};
         final PluginSpinner[] providerSpinnerRef = new PluginSpinner[1];
         final PluginSpinner[] modelSpinnerRef = new PluginSpinner[1];
 
@@ -670,6 +669,7 @@ public final class AiEditDialog {
                 break;
             }
         }
+        final String[] selectedModel = {initModel};
 
         PluginView view = pluginUI.buildVerticalLayout()
                 .paddingTop(pluginUI.dialogPaddingVertical() / 2)
@@ -735,8 +735,8 @@ public final class AiEditDialog {
                 .textSize(12).textColor(0xFF4CAF50).paddingTopDp(4)
                 .onClick(v -> {
                     String pid = providerIds.get(providerSel[0]);
-                    String ak = prefs.getString(profileKeyPrefix(activeProfile(profileSel[0])) + "api_key", "");
-                    String bu = prefs.getString(profileKeyPrefix(activeProfile(profileSel[0])) + "base_url", "");
+                    String ak = prefs.getString(profileKeyPrefix(profileId(profileSel[0])) + "api_key", "");
+                    String bu = prefs.getString(profileKeyPrefix(profileId(profileSel[0])) + "base_url", "");
                     String ep = (bu != null && !bu.isEmpty()) ? bu : ProviderRegistry.findById(pid).defaultBaseUrl;
                     pluginUI.showToast("Fetching models...");
                     new Thread(() -> {

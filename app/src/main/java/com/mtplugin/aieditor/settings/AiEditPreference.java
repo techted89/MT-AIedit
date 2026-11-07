@@ -59,7 +59,7 @@ public class AiEditPreference implements PluginPreference {
                 .hint("Example: https://api.deepseek.com/v1")
                 .valueAsSummary();
         // Dynamic model dropdown for Profile 1 (preset + fetched models)
-        SharedPreferences prefs1 = pluginUI.getContext().getPreferences();
+        SharedPreferences prefs1 = context.getPreferences();
         String providerId1 = prefs1.getString(Prefs.KEY_PROVIDER, "deepseek");
         List<String> models1 = ProviderRegistry.getAllModels(prefs1, ProviderRegistry.findById(providerId1));
         String currentModel1 = prefs1.getString(Prefs.KEY_MODEL, "deepseek-chat");
@@ -96,7 +96,7 @@ public class AiEditPreference implements PluginPreference {
                 .hint("Leave empty to auto-use provider's default endpoint")
                 .valueAsSummary();
         // Dynamic model dropdown for Profile 2 (preset + fetched models)
-        SharedPreferences prefs2 = pluginUI.getContext().getPreferences();
+        SharedPreferences prefs2 = context.getPreferences();
         String providerId2 = prefs2.getString("p2_provider", "deepseek");
         List<String> models2 = ProviderRegistry.getAllModels(prefs2, ProviderRegistry.findById(providerId2));
         String currentModel2 = prefs2.getString("p2_model", "deepseek-chat");
@@ -128,7 +128,7 @@ public class AiEditPreference implements PluginPreference {
                 .hint("Leave empty to auto-use provider's default endpoint")
                 .valueAsSummary();
         // Dynamic model dropdown for Profile 3 (preset + fetched models)
-        SharedPreferences prefs3 = pluginUI.getContext().getPreferences();
+        SharedPreferences prefs3 = context.getPreferences();
         String providerId3 = prefs3.getString("p3_provider", "deepseek");
         List<String> models3 = ProviderRegistry.getAllModels(prefs3, ProviderRegistry.findById(providerId3));
         String currentModel3 = prefs3.getString("p3_model", "deepseek-chat");
