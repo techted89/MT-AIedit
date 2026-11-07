@@ -308,4 +308,55 @@ public final class ProviderRegistry {
         }
         return result;
     }
+
+    /**
+     * Test if the provider connection works by making a lightweight API call.
+     * Different providers use different endpoints:
+     *   - OpenAI-compatible: GET {baseUrl}/models (checks auth + endpoint)
+     *   - Gemini: GET {baseUrl}/models?key={apiKey}
+     *   - Claude: GET {baseUrl}/models (Anthropic has no public models endpoint;
+     *     a successful or 401 response still validates connectivity/auth)
+     *
+     * @return Human-readable result message (e.g. "Connection successful" or "Error: ...")
+     */
+    public static String testConnection(String providerId, String baseUrl, String apiKey) {
+        if (baseUrl == null || baseUrl.isEmpty()) {
+            return "Error: No endpoint configured";
+        }
+
+        String url = baseUrl.trim();
+        while (url.endsWith("/")) {
+            url = url.substring(0, url.length() - 1);
+        }
+
+        if ("gemini".equals(providerId)) {
+            url += "/models?key=" + (apiKey != null ? apiKey : "");
+        } else {
+            // OpenAI-compatible and Claude
+            url += "/models";
+        }
+
+        Request.Builder rb = new Request.Builder().url(url);
+        if (!"gemini".equals(providerId) && apiKey != null && !apiKey.isEmpty()) {
+            rb.header("Authorization", "Bearer " + apiKey);
+        }
+
+        try (Response response = HTTP_CLIENT.newCall(rb.build()).execute()) {
+            if (response.isSuccessful()) {
+                return "Connection successful";
+            } else {
+                String body = "";
+                try {
+                    if (response.body() != null) {
+                        body = response.body().string();
+                    }
+                } catch (IOException ignored) {
+                }
+                String msg = body.isEmpty() ? response.message() : body;
+                return "Error: HTTP " + response.code() + " - " + msg;
+            }
+        } catch (Exception e) {
+            return "Error: " + (e.getMessage() != null ? e.getMessage() : e.toString());
+        }
+    }
 }

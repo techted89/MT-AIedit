@@ -77,6 +77,12 @@ public class AiEditPreference implements PluginPreference {
                 .summary("Fetch latest available models from the configured provider endpoint")
                 .onClick((pluginUI, item) -> refreshModelsForProfile(pluginUI, Prefs.KEY_PROVIDER,
                         Prefs.KEY_API_KEY, Prefs.KEY_BASE_URL));
+        // Verify connection for Profile 1
+        builder.addText("Verify connection (Profile 1)")
+                .summary("Test API key, endpoint, and model are working")
+                .textColor(0xFF4CAF50)
+                .onClick((pluginUI, item) -> testConnectionForProfile(pluginUI, Prefs.KEY_PROVIDER,
+                        Prefs.KEY_API_KEY, Prefs.KEY_BASE_URL, Prefs.KEY_MODEL));
         builder.addSwitch("Show token usage", Prefs.KEY_SHOW_TOKENS)
                 .defaultValue(true)
                 .summaryOn("Show input/output tokens for this request in status bar after request ends")
@@ -112,6 +118,12 @@ public class AiEditPreference implements PluginPreference {
                 .summary("Fetch latest available models from the configured provider endpoint")
                 .onClick((pluginUI, item) -> refreshModelsForProfile(pluginUI, "p2_provider",
                         "p2_api_key", "p2_base_url"));
+        // Verify connection for Profile 2
+        builder.addText("Verify connection (Profile 2)")
+                .summary("Test API key, endpoint, and model are working")
+                .textColor(0xFF4CAF50)
+                .onClick((pluginUI, item) -> testConnectionForProfile(pluginUI, "p2_provider",
+                        "p2_api_key", "p2_base_url", "p2_model"));
 
         // ===== Profile 3 =====
         builder.addHeader("Profile 3 · Connection");
@@ -143,6 +155,12 @@ public class AiEditPreference implements PluginPreference {
                 .summary("Fetch latest available models from the configured provider endpoint")
                 .onClick((pluginUI, item) -> refreshModelsForProfile(pluginUI, "p3_provider",
                         "p3_api_key", "p3_base_url"));
+        // Verify connection for Profile 3
+        builder.addText("Verify connection (Profile 3)")
+                .summary("Test API key, endpoint, and model are working")
+                .textColor(0xFF4CAF50)
+                .onClick((pluginUI, item) -> testConnectionForProfile(pluginUI, "p3_provider",
+                        "p3_api_key", "p3_base_url", "p3_model"));
 
         // ===== Generation parameters =====
         builder.addHeader("Generation Parameters");
@@ -290,5 +308,43 @@ public class AiEditPreference implements PluginPreference {
         ProviderRegistry.putCachedModels(prefs, providerId, models);
         pluginUI.showToast("Fetched " + models.size() + " models for " + provider.name
                 + ". They are now available in the model dropdown.");
+    }
+
+    /** Test if the provider connection works for a profile's current settings */
+    private static void testConnectionForProfile(PluginUI pluginUI, String providerKey,
+                                                 String apiKeyKey, String baseUrlKey,
+                                                 String modelKey) {
+        SharedPreferences prefs = pluginUI.getContext().getPreferences();
+        String providerId = prefs.getString(providerKey, "deepseek");
+        String apiKey = prefs.getString(apiKeyKey, "");
+        String baseUrl = prefs.getString(baseUrlKey, "");
+        String model = prefs.getString(modelKey, "");
+
+        ProviderRegistry.Provider provider = ProviderRegistry.findById(providerId);
+        if (provider == null) {
+            pluginUI.showToast("Unknown provider: " + providerId);
+            return;
+        }
+
+        // Use the profile's custom endpoint if set, otherwise fall back to the preset default
+        String endpoint = (baseUrl != null && !baseUrl.isEmpty())
+                ? baseUrl : provider.defaultBaseUrl;
+
+        if (endpoint == null || endpoint.isEmpty()) {
+            pluginUI.showToast("No endpoint configured for " + provider.name);
+            return;
+        }
+
+        if (model == null || model.isEmpty()) {
+            pluginUI.showToast("No model configured for " + provider.name);
+            return;
+        }
+
+        pluginUI.showToast("Testing connection to " + provider.name + "...");
+
+        new Thread(() -> {
+            String result = ProviderRegistry.testConnection(providerId, endpoint, apiKey);
+            pluginUI.showToast(provider.name + ": " + result);
+        }).start();
     }
 }
