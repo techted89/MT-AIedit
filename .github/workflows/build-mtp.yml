@@ -1,14 +1,14 @@
-# 云构建：把代码推到 GitHub 后自动编译出 .mtp 插件安装包
-# 用法：仓库 Actions 页签 -> 手动运行 "Build MTP"，或 push 代码时自动触发
-# 产物：Actions -> 本次运行 -> Artifacts -> mtai-editor-mtp.zip 下载
-# 发布：手动发布（GitHub Releases 网页上传 .mtp）
+# Cloud build: after pushing code to GitHub, automatically compile .mtp plugin package
+# Usage: Repository Actions tab -> manually run "Build MTP", or auto-triggered on code push
+# Artifacts: Actions -> This run -> Artifacts -> mtai-editor-mtp.zip download
+# Release: Manually publish (upload .mtp via GitHub Releases webpage)
 
 name: Build MTP
 
 on:
-  push:                      # 任何 push（网页改文件/上传代码）都会自动构建
+  push:                      # Any push (webpage file change/code upload) will auto build
     branches: [ main, master ]
-  workflow_dispatch:         # 也允许在网页上手动触发
+  workflow_dispatch:         # Also allows manual trigger from webpage
 
 jobs:
   build:
