@@ -146,16 +146,16 @@ public class AiEditPreference implements PluginPreference {
         // ===== Notes =====
         builder.addHeader("Notes");
         builder.addText("Usage Instructions").summary("1. After installation, configure AI on this page first (select config profile, fill API Key, model name, etc.)"
-                + "2. Open a text file, tap the "Pencil" button at the top of the editor, find "AI Edit" in the popup menu"
-                + "(if not found: first drag "AI Edit" from the "Custom" group to a common position)"
-                + "3. Enter instruction → Send → Confirm/modify AI output in preview box → tap "Apply" to write back to file and save."
+                + "2. Open a text file, tap the \"Pencil\" button at the top of the editor, find \"AI Edit\" in the popup menu"
+                + "(if not found: first drag \"AI Edit\" from the \"Custom\" group to a common position)"
+                + "3. Enter instruction → Send → Confirm/modify AI output in preview box → tap \"Apply\" to write back to file and save."
                 + "Tip: AI output can be directly modified before applying; scope (Whole File / Selected Text / Insert at Cursor) can be selected as needed,"
-                + "choosing a small scope (e.g. only select the part to change) can significantly save upload tokens; multi-turn conversation can use "New Conversation" to clear history.");
+                + "choosing a small scope (e.g. only select the part to change) can significantly save upload tokens; multi-turn conversation can use \"New Conversation\" to clear history.");
         builder.addText("API Key Security")
                 .summary("Stored locally only, deleted on uninstall; please comply with each provider's terms of service.");
         builder.addText("Endpoint left empty")
                 .summary("When selecting a preset provider, leaving endpoint empty will auto-use the provider's default endpoint;"
-                        + " "Custom" provider requires manually filling the complete endpoint.");
+                        + " \"Custom\" provider requires manually filling the complete endpoint.");
 
         // ===== Community & About =====
         builder.addHeader("Community & About");
