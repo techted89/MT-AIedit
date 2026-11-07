@@ -161,42 +161,13 @@ public class AiEditPreference implements PluginPreference {
         builder.addText("About & Community")
                 .summary("Version info · Website / QQ Channel / QQ Group (click to view)")
                 .onClick((pluginUI, item) -> AboutDialog.show(pluginUI));
-
-        // Register provider change listener to auto-set endpoint
-        builder.onPreferenceChange((pluginUI, preferenceItem, newValue) -> {
-            String key = preferenceItem.getKey();
-            String providerId = newValue != null ? newValue.toString() : "deepseek";
-            ProviderRegistry.Provider p = ProviderRegistry.findById(providerId);
-            if (p != null) {
-                SharedPreferences prefs = context.getPreferences();
-                String baseUrlKey = baseUrlKeyFor(providerKey);
-                String currentEndpoint = prefs.getString(baseUrlKey, "");
-                boolean isCustom = "custom".equals(providerId);
-                if (!isCustom && (currentEndpoint == null || currentEndpoint.isEmpty())) {
-                    prefs.edit().putString(baseUrlKey, p.defaultBaseUrl).apply();
-                } else if (isCustom) {
-                    prefs.edit().putString(baseUrlKey, "").apply();
-                }
-            }
-        });
-    }
-
-    private String providerKeyFor(String providerKey) {
-        return providerKey;
-    }
-
-    private String baseUrlKeyFor(String providerKey) {
-        if (Prefs.KEY_PROVIDER.equals(providerKey)) return Prefs.KEY_BASE_URL;
-        if ("p2_provider".equals(providerKey)) return "p2_base_url";
-        if ("p3_provider".equals(providerKey)) return "p3_base_url";
-        return providerKey + "_base_url";
     }
 
     /** Provider dropdown (shared by profiles) */
     private void addProviderList(Builder builder, String title, String key, String baseUrlKey, PluginContext context) {
         builder.addList(title, key)
                 .defaultValue("deepseek")
-                .summary("Select provider - endpoint auto-set to provider default")
+                .summary("Select provider - endpoint shown below")
                 .addItem(presetId("openai"), "openai")
                 .addItem(presetId("deepseek"), "deepseek")
                 .addItem(presetId("qwen"), "qwen")
