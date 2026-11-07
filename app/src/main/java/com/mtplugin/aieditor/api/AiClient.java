@@ -9,82 +9,82 @@ import com.mtplugin.aieditor.ChatMessage;
 import com.mtplugin.aieditor.ProviderRegistry;
 
 /**
- * AI 对话客户端统一接口。
- * 所有客户端都是「同步阻塞」实现：内部做网络 IO + 流式解析，
- * 由调用方（对话框）放到后台线程执行。
+ * Unified AI chat client interface.
+ * All clients are "synchronous blocking" implementations: internal network IO + streaming parsing,
+ * executed by the caller (dialog) on a background thread.
  *
- * 说明：通用的工具方法（trimSlash/buildClient/optString 等）集中在 {@link ApiUtils}，
- * 不要在本接口里定义 static 方法后由实现类用简单名调用（Java 不允许）。
+ * Note: common utility methods (trimSlash/buildClient/optString etc.) are concentrated in {@link ApiUtils},
+ * do not define static methods in this interface for implementation classes to call by simple name (Java does not allow).
  */
 public interface AiClient {
 
     /**
-     * 流式/结果回调。onDelta 可能被调用 0..N 次；结束后只会调用 onFinished 或 onError 之一。
+     * Streaming/result callback. onDelta may be called 0..N times; at the end only onFinished or onError is called once.
      */
     interface Callback {
-        /** 流式增量文本（可能为空片段） */
+        /** Streaming incremental text (may be empty fragment) */
         void onDelta(@NonNull String deltaText);
 
         /**
-         * 模型的思考内容（如 deepseek-reasoner 的 reasoning_content、
-         * Claude thinking 块）。在后台线程回调；不会写入最终结果。
+         * Model thinking content (e.g. deepseek-reasoner's reasoning_content,
+         * Claude thinking block). Callback on background thread; not written to final result.
          *
-         * @param thinkingText 本次增量思考内容
+         * @param thinkingText This round's incremental thinking content
          */
         default void onThinking(@NonNull String thinkingText) {
         }
 
         /**
-         * 本次请求的 tokens 用量（可能不被所有服务商/所有请求返回）。
-         * 在后台线程回调；若服务商未返回 usage 则不会调用。
+         * Token usage for this request (may not be returned by all providers/all requests).
+         * Callback on background thread; if provider did not return usage it will not be called.
          *
-         * @param promptTokens     输入 tokens（-1 表示未知）
-         * @param completionTokens 输出 tokens（-1 表示未知）
+         * @param promptTokens     Input tokens (-1 means unknown)
+         * @param completionTokens Output tokens (-1 means unknown)
          */
         default void onUsage(long promptTokens, long completionTokens) {
         }
 
         /**
-         * 模型"思考"内容片段（如 DeepSeek-R1 的 reasoning_content，OpenAI o1 的 reasoning）。
-         * 思考内容不应写入结果；调用方可据此提示用户"模型思考中"。
+         * Model "thinking" content fragment (e.g. DeepSeek-R1's reasoning_content, OpenAI o1's reasoning).
+         * Thinking content should not be written to result; caller can use it to hint user "model thinking".
          */
         default void onReasoning(@NonNull String reasoningText) {
         }
 
         /**
-         * 输出因达到 max_tokens 上限被截断（finish_reason=length / stop_reason=max_tokens /
-         * finishReason=MAX_TOKENS），用于提示用户调大上限或换模型。
+         * Output truncated due to reaching max_tokens limit (finish_reason=length / stop_reason=max_tokens /
+         * finishReason=MAX_TOKENS), used to hint user to increase limit or change model.
          */
         default void onTruncated() {
         }
 
-        /** 全部完成：fullText 为累计的完整输出 */
+        /** All finished: fullText is the accumulated complete output */
         void onFinished(@NonNull String fullText);
 
-        /** 失败 */
+        /** Failure */
         void onError(@NonNull String message);
     }
 
     /**
-     * 发起一次对话请求（阻塞）。
+     * Initiate a chat request (blocking).
      *
-     * @param messages  消息列表（含 system / user）
-     * @param callback  回调
-     * @param cancelled 取消标记：置 true 后尽快中断（调用方线程继续运行）
+     * @param messages  Message list (including system / user)
+     * @param callback  Callback
+     * @param cancelled Cancel flag: set true to interrupt ASAP (caller thread continues running)
      */
     void chat(@NonNull List<ChatMessage> messages,
               @NonNull Callback callback,
               @NonNull AtomicBoolean cancelled);
 
     /**
-     * 取消当前正在进行的请求（若存在）。
-     * 底层连接立即中断，阻塞中的读线程会尽快返回。
-     * 调用方通常先置位 {@code cancelled} 再调用本方法，避免回调竞态。
+     * Cancel the currently ongoing request (if any).
+     * Underlying connection immediately interrupted, blocking read thread returns ASAP.
+     * Caller usually sets {@code cancelled} flag first then calls this method, to avoid callback race conditions.
      */
     void cancel();
 
     /**
-     * 客户端工厂：根据协议类型创建对应客户端。
+     * Client factory: create corresponding client by protocol type.
      */
     class Factory {
 
@@ -92,13 +92,13 @@ public interface AiClient {
         }
 
         /**
-         * @param protocol    ProviderRegistry.Protocol 中的值（openai / claude / gemini）
-         * @param baseUrl     接口根地址，例如 https://api.deepseek.com/v1
-         * @param apiKey      API Key（无 Key 的本地服务可传空字符串）
-         * @param model       模型名
-         * @param temperature 采样温度
-         * @param maxTokens   最大输出 token 数
-         * @param timeoutSec  请求超时（秒）
+         * @param protocol    Value in ProviderRegistry.Protocol (openai / claude / gemini)
+         * @param baseUrl     Endpoint root address, e.g. https://api.deepseek.com/v1
+         * @param apiKey      API Key (local service without Key can pass empty string)
+         * @param model       Model name
+         * @param temperature Sampling temperature
+         * @param maxTokens   Max output token count
+         * @param timeoutSec  Request timeout (seconds)
          */
         @NonNull
         public static AiClient create(@NonNull String protocol,

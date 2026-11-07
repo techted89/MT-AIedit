@@ -37,29 +37,29 @@ import bin.mt.plugin.api.ui.dialog.PluginDialog;
 import bin.mt.plugin.api.util.ThreadUtil;
 
 /**
- * AI 编辑对话框。
+ * AI Edit dialog.
  *
- * 界面：指令输入框 + 作用范围 + 服务商/配置方案下拉 + 模型输入 + 设置/关于入口
- *       + 发送/停止 + 流式输出预览 + 复制/导出/应用/关闭。
+ * UI: instruction input box + scope + provider/config profile dropdown + model input + settings/about entry
+ *     + send/stop + streaming output preview + copy/export/apply/close.
  *
- * 功能：三种作用范围（全文/选中/光标）、多套配置方案切换、多轮连续对话、
- *       流式输出（可停止，内容保留）、tokens 用量显示、思考型模型进度提示、
- *       token 预估、应用前可手动修改输出。
+ * Features: three scopes (whole file / selected text / cursor), multiple config profile switching, multi-turn continuous conversation,
+ *           streaming output (stoppable, content retained), token usage display, reasoning model progress hint,
+ *           token estimation, output can be manually modified before applying.
  *
- * 说明：网络请求在后台线程执行；所有 UI 更新（setText/setEnabled 等）必须通过
- *       ThreadUtil.runOnUiThread 切回主线程（SDK 内部有 UI 线程检查）。
+ * Note: network requests run on background thread; all UI updates (setText/setEnabled etc.) must switch back to main thread
+ *       via ThreadUtil.runOnUiThread (SDK has UI thread check internally).
  */
 public final class AiEditDialog {
 
-    /** 作用范围 */
+    /** Scope */
     private static final int SCOPE_FULL = 0;
     private static final int SCOPE_SELECTED = 1;
     private static final int SCOPE_CURSOR = 2;
 
-    /** 整个文件模式的最大字符数（约 10 万字符 ≈ 数万 tokens，防止超上下文/过慢） */
+    /** Max characters for whole file mode (approx 100k chars ≈ tens of thousands of tokens, prevent exceeding context/too slow) */
     private static final int MAX_FULL_CHARS = 100000;
 
-    /** 多轮对话历史上限（条数，user+assistant 各算一条；12 = 最近 6 轮） */
+    /** Multi-turn conversation history limit (count, user+assistant each count as one; 12 = last 6 rounds) */
     private static final int MAX_HISTORY = 12;
 
     private AiEditDialog() {
@@ -69,23 +69,23 @@ public final class AiEditDialog {
         final PluginContext context = pluginUI.getContext();
         final SharedPreferences prefs = context.getPreferences();
 
-        // ---------- 读取编辑器状态 ----------
+        // ---------- Read editor state ----------
         final boolean hasSelection = editor.hasTextSelected();
         final int selStart = editor.getSelectionStart();
         final int selEnd = editor.getSelectionEnd();
         final String selectedText = hasSelection ? editor.subText(selStart, selEnd) : "";
         final String filePath = editor.getFilePath();
         final String fileName = editor.getFileName();
-        // 注意：fullText（全文）不在打开时读取，延迟到发送时再取（避免大文件卡顿）
+        // Note: fullText (whole file) is not read at open time, delayed until send (avoid large file lag)
         final int cursorPos = editor.getSelectionStart();
 
-        // ---------- 全局参数（方案不包含的部分） ----------
+        // ---------- Global parameters (parts not included in profile) ----------
         final float temperature = Prefs.getFloat(prefs, Prefs.KEY_TEMPERATURE, 0.2f);
         final int maxTokens = Prefs.getInt(prefs, Prefs.KEY_MAX_TOKENS, 8192);
         final int timeoutSec = Prefs.getInt(prefs, Prefs.KEY_TIMEOUT_SEC, 120);
         final String systemPrompt = Prefs.getString(prefs, Prefs.KEY_SYSTEM_PROMPT, Prefs.DEFAULT_SYSTEM_PROMPT);
 
-        // ---------- 配置方案（决定 服务商/Key/地址/模型） ----------
+        // ---------- Config profile (determines provider/Key/endpoint/model) ----------
         final String activeProfile = Prefs.getString(prefs, Prefs.KEY_ACTIVE_PROFILE, "p1");
         String[] initCfg = readProfile(prefs, activeProfile); // {providerId, apiKey, baseUrl, model}
         final String initProviderId = initCfg[0];
@@ -98,28 +98,28 @@ public final class AiEditDialog {
         final String initBaseUrl = initCfg[2].trim().isEmpty() && initProvider != null
                 ? initProvider.defaultBaseUrl : initCfg[2];
 
-        // ---------- 下拉数据 ----------
+        // ---------- Dropdown data ----------
         int scopeDefault = hasSelection ? SCOPE_SELECTED : SCOPE_FULL;
         int profileDefault = "p2".equals(activeProfile) ? 1 : ("p3".equals(activeProfile) ? 2 : 0);
 
-        // Spinner 当前选中项（SDK 的 Spinner 通过 onItemSelected 回调通知，用数组捕获）
+        // Spinner current selection (SDK Spinner notifies via onItemSelected callback, captured via array)
         final int[] scopeSel = {scopeDefault};
         final int[] profileSel = {profileDefault};
-        // 当前生效模型（主界面已无模型输入框，模型在「配置」弹窗中设置）
+        // Current effective model (main UI no longer has model input box, model is set in "Config" popup)
         final String[] currentModel = {initModelText};
 
-        // ---------- 构建视图 ----------
-        // 注意：Spinner 的 onItemSelected 在对话框显示时会触发一次，
-        // 因此所有控件引用必须在 show() 之前取得，回调里才能安全操作控件。
+        // ---------- Build view ----------
+        // Note: Spinner's onItemSelected triggers once when dialog is shown,
+        // so all view references must be obtained before show(), callbacks can safely operate controls.
         PluginView view = pluginUI.buildVerticalLayout()
                 .paddingTop(pluginUI.dialogPaddingVertical() / 2)
-                // 指令输入（独占一行，完整多行显示，不被水平布局裁剪）
+                // Instruction input (occupies a full line, complete multi-line display, not cropped by horizontal layout)
                 .addEditBox("instruction")
                 .hint(context.getString("dialog_instruction_hint"))
                 .textSize(13)
                 .minLines(2).maxLines(5)
                 .softWrap(PluginEditText.SOFT_WRAP_KEEP_WORD)
-                // 作用范围 + 发送按钮（发送按钮紧邻输入框，操作连贯）
+                // Scope + Send button (send button right next to input box, coherent operation)
                 .addHorizontalLayout().children(row -> row
                         .addSpinner("scope")
                         .items(Arrays.asList(
@@ -133,22 +133,22 @@ public final class AiEditDialog {
                         .textColor(0xFFFFFFFF)
                         .backgroundColor(0xFF4CAF50)
                 )
-                // 状态栏
+                // Status bar
                 .addTextView("status").textSize(12).textColor(pluginUI.colorTextSecondary())
                 .text(context.getString("dialog_status_idle") + "  " + initBaseUrl)
-                // 操作按钮（停止 / 配置）
+                // Action buttons (Stop / Config)
                 .addHorizontalLayout().children(row -> row
                         .addButton("stop").text(context.getString("dialog_stop_btn"))
                         .width(0).layoutWeight(1).enable(false)
                         .addButton("config").text(context.getString("dialog_config_btn"))
                         .width(0).layoutWeight(1)
                 )
-                // 结果区
+                // Result area
                 .addTextView("resultLabel").text(context.getString("dialog_result_label"))
                 .textSize(12).textColor(pluginUI.colorTextSecondary())
                 .addEditBox("result").textSize(12).minLines(6).maxLines(12)
                 .softWrap(PluginEditText.SOFT_WRAP_KEEP_WORD)
-                // Plan / Act / 执行方案（AI 输出框下方）
+                // Plan / Act / Execute Plan (below AI output box)
                 .addHorizontalLayout().children(row -> row
                         .addButton("plan").text(context.getString("dialog_mode_plan"))
                         .width(0).layoutWeight(1)
@@ -157,10 +157,10 @@ public final class AiEditDialog {
                         .addButton("execute").text(context.getString("dialog_execute_btn"))
                         .width(0).layoutWeight(1)
                 )
-                // 分割线，分隔输出区与底部操作
+                // Divider, separates output area from bottom actions
                 .addView().height(1).widthMatchParent().marginTopDp(6).marginBottomDp(6)
                 .backgroundColor(pluginUI.colorDivider())
-                // 复制 / 导出 / 关闭 / 应用（视图最底部一行，无边框文字链接，留白；应用在最右）
+                // Copy / Export / Close / Apply (bottom row of view, borderless text links, whitespace; Apply on far right)
                 .addHorizontalLayout().children(row -> row
                         .addTextView("copy").text(context.getString("dialog_copy_btn"))
                         .textSize(13).layoutWeight(1)
@@ -174,7 +174,7 @@ public final class AiEditDialog {
                 .paddingTopDp(10).paddingBottomDp(14)
                 .build();
 
-        // 控件引用（必须在 show 之前取得）
+        // View references (must be obtained before show)
         final PluginEditText instruction = view.requireViewById("instruction");
         final PluginButton configBtn = view.requireViewById("config");
         final PluginTextView status = view.requireViewById("status");
@@ -186,7 +186,7 @@ public final class AiEditDialog {
         final PluginButton actBtn = view.requireViewById("act");
         final PluginButton executeBtn = view.requireViewById("execute");
 
-        // ---------- 对话框（所有操作按钮均在视图底部文字链接行） ----------
+        // ---------- Dialog (all action buttons are in the bottom text link row of the view) ----------
         final PluginDialog dialog = pluginUI.buildDialog()
                 .setTitle("{plugin_name}")
                 .setView(view)
@@ -200,39 +200,40 @@ public final class AiEditDialog {
         copyBtn.setEnabled(false);
 
         final AtomicBoolean cancelled = new AtomicBoolean(false);
-        // 本次请求 tokens 用量 [输入, 输出]，-1 表示未知（服务商未返回 usage）
+        // Token usage for this request [input, output], -1 means unknown (provider did not return usage)
         final long[] lastTokens = new long[]{-1, -1};
-        // 输出是否被 max_tokens 截断（思考型模型常见）
+        // Whether output is truncated by max_tokens (common for reasoning models)
         final boolean[] truncated = {false};
-        // 本次请求思考内容累计长度（不进入结果）
+        // Cumulative length of thinking content for this request (not included in result)
         final long[] thinkingLen = new long[]{0};
-        // 多轮对话历史（user/assistant 对；不含 system）
+        // Multi-turn conversation history (user/assistant pairs; excludes system)
         final ArrayList<ChatMessage> history = new ArrayList<>();
         final StringBuilder resultText = new StringBuilder();
-        // Plan/Act 双模式：plan=只读分析，act=可执行写入（默认 plan，记忆上次选择）
+        // Plan/Act dual mode: plan=read-only analysis, act=executable write (default plan, remembers last choice)
         final String[] mode = {Prefs.getString(prefs, Prefs.KEY_MODE, Prefs.MODE_PLAN)};
 
-        // 输出框编辑控制：Plan 模式永远只读；Act 模式输出未完成时也只读
-        final boolean[] streaming = {false};           // 是否正在请求/输出
-        final boolean[] editingAllowed = {true};       // 当前是否允许用户修改输出框
-        final boolean[] programmaticEdit = {false};    // 程序性 setText 标志（避免误拦截）
+        // Output box editing control: Plan mode always read-only; Act mode also read-only while output not finished
+        final boolean[] streaming = {false};           // Whether currently requesting/outputting
+        final boolean[] editingAllowed = {true};       // Whether user is currently allowed to modify output box
+        final boolean[] programmaticEdit = {false};    // Programmatic setText flag (avoid false interception)
         final Runnable refreshEditingState = () ->
                 editingAllowed[0] = Prefs.MODE_ACT.equals(mode[0]) && !streaming[0];
+        // editingAllowed = Act mode AND not currently streaming
 
-        // 统一刷新「应用 / 复制」按钮状态：onFinished / onError / 停止 三处共用，避免状态遗漏
+        // Uniformly refresh "Apply / Copy" button state: shared by onFinished / onError / stop, avoid missing state
         final Runnable refreshActionButtons = () -> {
             boolean hasText = resultText.length() > 0;
             boolean actReady = hasText && !streaming[0] && Prefs.MODE_ACT.equals(mode[0]);
             applyBtn.setEnabled(actReady);
-            // Act 输出结束后「应用」高亮为绿色
+            // Act output finished, "Apply" highlighted green
             applyBtn.setTextColor(actReady ? 0xFF4CAF50 : 0xFF808080);
             copyBtn.setEnabled(hasText);
         };
 
-        // 当前请求对应的客户端：停止/关闭时用于真正中断底层网络请求
+        // Client corresponding to current request: used to truly interrupt underlying network request on stop/close
         final AiClient[] currentClient = new AiClient[1];
 
-        // 拦截非法编辑：Plan 模式 / Act 输出未完成时，用户改输出框会被还原并提示
+        // Intercept illegal editing: in Plan mode / Act output not finished, user modifying output box will be reverted and prompted
         resultBox.addTextChangedListener(new PluginEditTextWatcher.Simple() {
             @Override
             public void afterTextChanged(PluginEditText editText, Editable s) {
@@ -248,12 +249,13 @@ public final class AiEditDialog {
                             Prefs.MODE_ACT.equals(mode[0])
                                     ? "dialog_status_output_pending"
                                     : "dialog_status_plan_readonly_edit"));
+                    // Act mode: output pending / Plan mode: read-only edit
                 }
             }
         });
 
-        // ---------- 发送（发送按钮与「执行方案」按钮共用） ----------
-        // executePending：执行方案模式标记——跳过指令校验、不追加 userMsg（续接指令已注入历史）
+        // ---------- Send (shared by Send and "Execute Plan" buttons) ----------
+        // executePending: Execute Plan mode flag -- skip instruction validation, do not append userMsg (continuation instruction already injected into history)
         final boolean[] executePending = {false};
         final Runnable sendRunnable = () -> {
             boolean executeMode = executePending[0];
@@ -271,7 +273,7 @@ public final class AiEditDialog {
                 return;
             }
 
-            // 按当前配置方案读取连接配置
+            // Read connection config according to current config profile
             String[] cfg = readProfile(prefs, profileId(profileSel[0]));
             final String providerId = cfg[0];
             final String apiKey = cfg[1];
@@ -283,7 +285,7 @@ public final class AiEditDialog {
                     : provider.protocol;
 
             if (baseUrl.isEmpty()) {
-                status.setText(context.getString("dialog_status_err", "未配置接口地址，请先在设置中填写"));
+                status.setText(context.getString("dialog_status_err", "Endpoint not configured, please fill it in Settings first"));
                 return;
             }
             boolean needKey = !("ollama".equals(providerId)
@@ -297,14 +299,14 @@ public final class AiEditDialog {
                 status.setText(context.getString("dialog_status_need_selection"));
                 return;
             }
-            // 整个文件模式：过大保护（防止超模型上下文/传输过慢）
+            // Whole file mode: oversize protection (prevent exceeding model context / slow transfer)
             int fileLen = editor.length();
             if (scope == SCOPE_FULL && fileLen > MAX_FULL_CHARS) {
                 status.setText(context.getString("dialog_status_file_too_large", fileLen));
                 return;
             }
-            // 按需读取，避免多传文件内容（节约输入 tokens）：
-            // 整个文件=读全文；光标插入=只读光标附近窗口；选中文本=不读全文
+            // Read on demand, avoid sending extra file content (save input tokens):
+            // Whole file = read all; Cursor insert = read only cursor vicinity window; Selected text = do not read whole file
             String fullText = "";
             int promptCursor = cursorPos;
             if (scope == SCOPE_FULL) {
@@ -313,10 +315,10 @@ public final class AiEditDialog {
                 int winStart = Math.max(0, cursorPos - 150);
                 int winEnd = Math.min(fileLen, cursorPos + 100);
                 fullText = editor.subText(winStart, winEnd);
-                promptCursor = cursorPos - winStart; // 转为窗口内相对位置
+                promptCursor = cursorPos - winStart; // Convert to relative position within window
             }
 
-            // 构造消息（多轮：system 只在第一轮出现，之后携带历史）
+            // Construct messages (multi-turn: system appears only in first round, history carried afterwards)
             List<ChatMessage> messages = new ArrayList<>();
             if (history.isEmpty()) {
                 messages.add(ChatMessage.system(buildSystemPrompt(systemPrompt, mode[0])));
@@ -324,7 +326,7 @@ public final class AiEditDialog {
             messages.addAll(history);
             final ChatMessage userMsg;
             if (executeMode) {
-                // 执行方案模式：续接指令已注入历史，无需再构造 userMsg
+                // Execute Plan mode: continuation instruction already injected into history, no need to construct userMsg again
                 userMsg = null;
             } else {
                 userMsg = ChatMessage.user(buildUserPrompt(scope, instructionText, selectedText,
@@ -334,12 +336,12 @@ public final class AiEditDialog {
 
             long estTokens = estimateTokens(messages);
 
-            // 创建客户端（按协议选择实现）
+            // Create client (select implementation by protocol)
             final AiClient client = AiClient.Factory.create(
                     protocol, baseUrl, apiKey, modelText, temperature, maxTokens, timeoutSec);
             currentClient[0] = client;
 
-            // 界面状态
+            // UI state
             cancelled.set(false);
             lastTokens[0] = -1;
             lastTokens[1] = -1;
@@ -361,19 +363,20 @@ public final class AiEditDialog {
             } else {
                 status.setText(context.getString("dialog_status_sending_tokens", estTokens));
             }
+            // Uploading full text / Sending tokens
 
             new Thread(() -> {
                 client.chat(messages, new AiClient.Callback() {
                     @Override
                     public void onDelta(@NonNull String deltaText) {
-                        // UI 更新必须切回主线程（SDK 的 setEnabled/setText 内部有线程检查）
+                        // UI updates must switch back to main thread (SDK's setEnabled/setText has thread check internally)
                         ThreadUtil.runOnUiThread(() -> {
                             resultText.append(deltaText);
                             programmaticEdit[0] = true;
                             resultBox.setText(resultText);
                             programmaticEdit[0] = false;
-                            // 关键：把光标移到末尾，让视图滚动跟随输出，
-                            // 否则 setText 全量刷新会把光标/滚动重置到顶部，看不到下方内容
+                            // Key: move cursor to end so view scroll follows output,
+                            // otherwise setText full refresh would reset cursor/scroll to top, missing bottom content
                             moveCursorToEnd(resultBox);
                         });
                     }
@@ -386,7 +389,7 @@ public final class AiEditDialog {
 
                     @Override
                     public void onReasoning(@NonNull String reasoningText) {
-                        // 思考型模型（OpenAI 兼容）：思考内容不写入结果，仅累计并在状态栏提示进度
+                        // Reasoning model (OpenAI-compatible): thinking content not written to result, only accumulated and progress hinted in status bar
                         if (reasoningText != null && reasoningText.length() > 0) {
                             thinkingLen[0] += reasoningText.length();
                             ThreadUtil.runOnUiThread(() ->
@@ -411,13 +414,13 @@ public final class AiEditDialog {
                         ThreadUtil.runOnUiThread(() -> {
                             boolean success = !cancelled.get() && resultText.length() > 0;
                             if (success) {
-                                // 记录到历史（多轮对话），保留最近 6 轮
-                                // 执行方案模式 userMsg 为 null（续接指令已在历史中），不重复记录
+                                // Record to history (multi-turn conversation), keep last 6 rounds
+                                // Execute Plan mode userMsg is null (continuation instruction already in history), do not record twice
                                 if (userMsg != null) {
                                     history.add(userMsg);
                                 }
                                 history.add(ChatMessage.assistant(resultText.toString()));
-                                // AI 完成后自动清空指令输入框：下次直接输入即自动继续对话（保留历史）
+                                // AI finished, automatically clear instruction input box: next direct input automatically continues conversation (history retained)
                                 instruction.setText("");
                                 while (history.size() > MAX_HISTORY) {
                                     history.remove(0);
@@ -427,10 +430,10 @@ public final class AiEditDialog {
                                 }
                             }
                             if (cancelled.get()) {
-                                // 停止后内容保留（可复制/继续修改后应用）
+                                // Content retained after stop (can copy / continue modifying then apply)
                                 status.setText(context.getString("dialog_status_stopped", resultText.length()));
                             } else if (resultText.length() == 0 && thinkingLen[0] > 0) {
-                                // 模型只返回了思考内容（如 max_tokens 太小、请求被截断）
+                                // Model only returned thinking content (e.g. max_tokens too small, request truncated)
                                 status.setText(context.getString("dialog_status_only_thinking"));
                             } else {
                                 String done = context.getString("dialog_status_done", resultText.length());
@@ -459,7 +462,7 @@ public final class AiEditDialog {
                             refreshEditingState.run();
                             sendBtn.setEnabled(true);
                             stopBtn.setEnabled(false);
-                            // 出错时不允许「应用」（输出可能不完整），但仍可复制已有内容
+                            // On error, "Apply" not allowed (output may be incomplete), but existing content can still be copied
                             applyBtn.setEnabled(false);
                             applyBtn.setTextColor(0xFF808080);
                             copyBtn.setEnabled(resultText.length() > 0);
@@ -471,31 +474,31 @@ public final class AiEditDialog {
         };
         sendBtn.setOnClickListener(v -> sendRunnable.run());
 
-        // ---------- 停止（内容保留） ----------
+        // ---------- Stop (content retained) ----------
         stopBtn.setOnClickListener(v -> {
             cancelled.set(true);
-            // 真正中断底层网络请求（而非仅等待标志位，避免慢响应时阻塞到超时）
+            // Truly interrupt underlying network request (not just wait for flag, avoid blocking until timeout on slow response)
             AiClient c = currentClient[0];
             if (c != null) {
                 c.cancel();
             }
             streaming[0] = false;
             refreshEditingState.run();
-            // 停止后保留已生成内容：允许复制 / （Act 模式下）应用半截输出
+            // Retain generated content after stop: allow copy / (Act mode) apply partial output
             refreshActionButtons.run();
             sendBtn.setEnabled(true);
             stopBtn.setEnabled(false);
         });
 
-        // ---------- Plan / Act 模式切换 ----------
+        // ---------- Plan / Act mode switching ----------
         final Runnable refreshModeButtons = () -> {
             boolean act = Prefs.MODE_ACT.equals(mode[0]);
             refreshEditingState.run();
             planBtn.setEnabled(act);
             actBtn.setEnabled(!act);
-            executeBtn.setEnabled(!act); // Act 模式下「执行方案」不可点
+            executeBtn.setEnabled(!act); // Button not clickable in Act mode
             if (!act) {
-                applyBtn.setEnabled(false); // Plan 只读：禁止应用
+                applyBtn.setEnabled(false); // Plan read-only: prohibit apply
                 applyBtn.setTextColor(0xFF808080);
             } else if (resultText.length() > 0) {
                 applyBtn.setEnabled(true);
@@ -503,51 +506,51 @@ public final class AiEditDialog {
             }
         };
         planBtn.setOnClickListener(v -> {
-            if (Prefs.MODE_ACT.equals(mode[0])) { // 当前 Act -> 切 Plan
-                // 仅切换本次会话模式，不写回设置（默认启动模式由设置界面决定）
+            if (Prefs.MODE_ACT.equals(mode[0])) { // Current Act -> switch Plan
+                // Only switch this session's mode, do not write back to settings (default startup mode determined by Settings interface)
                 mode[0] = Prefs.MODE_PLAN;
                 if (!history.isEmpty()) {
-                    // 注入续接指令，无缝继承上下文
-                    history.add(ChatMessage.user("[模式已切换为 Plan] 请停止写入，只进行分析、方案设计和代码审查，不要输出修改后的完整文件内容。"));
+                    // Inject continuation instruction, seamlessly inherit context
+                    history.add(ChatMessage.user("[Mode switched to Plan] Please stop writing, only perform analysis, solution design and code review, do not output modified full file content."));
                 }
                 status.setText(context.getString("dialog_status_mode_plan"));
             }
             refreshModeButtons.run();
         });
         actBtn.setOnClickListener(v -> {
-            if (!Prefs.MODE_ACT.equals(mode[0])) { // 当前 Plan -> 切 Act
-                // 仅切换本次会话模式，不写回设置（默认启动模式由设置界面决定）
+            if (!Prefs.MODE_ACT.equals(mode[0])) { // Current Plan -> switch Act
+                // Only switch this session's mode, do not write back to settings (default startup mode determined by Settings interface)
                 mode[0] = Prefs.MODE_ACT;
                 if (!history.isEmpty()) {
-                    // 注入续接指令：无缝继承 Plan 阶段的分析结论
-                    history.add(ChatMessage.user("[模式已切换为 Act] 用户已批准方案，请开始执行：基于之前的分析结论，直接输出修改后的完整文件内容，不要输出方案或解释。"));
+                    // Inject continuation instruction: seamlessly inherit Plan phase analysis conclusions
+                    history.add(ChatMessage.user("[Mode switched to Act] User has approved the plan, please start executing: based on previous analysis conclusions, directly output modified full file content, do not output plan or explanation."));
                 }
                 status.setText(context.getString("dialog_status_mode_act"));
             }
             refreshModeButtons.run();
         });
 
-        // ---------- 执行方案：切换 Act 并按历史自动执行（Act 模式下按钮禁用） ----------
+        // ---------- Execute Plan: switch Act and auto-execute based on history (button disabled in Act mode) ----------
         executeBtn.setOnClickListener(v -> {
             if (Prefs.MODE_ACT.equals(mode[0])) {
-                return; // Act 模式下按钮不可点
+                return; // Button not clickable in Act mode
             }
             if (history.isEmpty()) {
                 status.setText(context.getString("dialog_status_no_plan"));
                 return;
             }
-            // 切换为 Act 模式（仅本次会话，不写回设置）
+            // Switch to Act mode (this session only, not written back to settings)
             mode[0] = Prefs.MODE_ACT;
-            // 注入续接指令：让 AI 基于历史分析结论直接输出修改后的完整内容
-            history.add(ChatMessage.user("[模式已切换为 Act] 用户已批准方案，请开始执行：基于之前的分析结论，直接输出修改后的完整文件内容，不要输出方案或解释。"));
+            // Inject continuation instruction: let AI directly output modified full content based on historical analysis conclusions
+            history.add(ChatMessage.user("[Mode switched to Act] User has approved the plan, please start executing: based on previous analysis conclusions, directly output modified full file content, do not output plan or explanation."));
             refreshModeButtons.run();
-            // 触发一次发送（执行方案模式：不校验输入框、不追加新 userMsg）
+            // Trigger one send (Execute Plan mode: do not validate input box, do not append new userMsg)
             executePending[0] = true;
             sendRunnable.run();
         });
-        refreshModeButtons.run(); // 初始按已保存的模式设置按钮状态
+        refreshModeButtons.run(); // Initial button state set by saved mode
 
-        // ---------- 复制（读取预览框实况内容，含手动修改） ----------
+        // ---------- Copy (read live content from preview box, including manual modifications) ----------
         copyBtn.setOnClickListener(v -> {
             String text = resultBox.getText() == null ? "" : resultBox.getText().toString();
             if (!text.isEmpty()) {
@@ -556,15 +559,15 @@ public final class AiEditDialog {
             }
         });
 
-        // ---------- 导出对话（底部文字链接，打开导出弹窗：目录 + 文件名格式） ----------
+        // ---------- Export conversation (bottom text link, open export popup: directory + filename format) ----------
         exportBtn.setOnClickListener(v -> {
             showExportDialog(pluginUI, context, prefs, fileName, mode[0], currentModel[0], history, resultBox);
         });
 
-        // ---------- 应用（读取预览框实况内容：AI 输出可在应用前手动修改调整） ----------
+        // ---------- Apply (read live content from preview box: AI output can be manually modified before applying) ----------
         applyBtn.setOnClickListener(v -> {
             if (!Prefs.MODE_ACT.equals(mode[0])) {
-                // Plan 模式只读：禁止写入文件
+                // Plan mode read-only: prohibit writing to file
                 status.setText(context.getString("dialog_status_plan_readonly"));
                 return;
             }
@@ -585,16 +588,16 @@ public final class AiEditDialog {
                     editor.insertText(cursorPos, result);
                 }
                 editor.save(null);
-                // 应用成功不关闭弹窗：toast 提示即可，方便继续对话/再次应用
+                // Apply success does not close dialog: toast is enough, convenient for continuing conversation / applying again
                 pluginUI.showToast(context.getString("dialog_status_saved"));
             } catch (Throwable t) {
                 status.setText(context.getString("dialog_status_err", t.toString()));
             }
         });
 
-        // ---------- 关闭 ----------
+        // ---------- Close ----------
         closeBtn.setOnClickListener(v -> {
-            // 关闭即中断进行中的请求，避免后台线程回调已销毁的对话框控件
+            // Close interrupts ongoing request to avoid background thread callbacks to destroyed dialog controls
             cancelled.set(true);
             AiClient c = currentClient[0];
             if (c != null) {
@@ -603,7 +606,7 @@ public final class AiEditDialog {
             dialog.dismiss();
         });
 
-        // ---------- 配置入口（模型/方案弹窗） ----------
+        // ---------- Config entry (model/profile popup) ----------
         configBtn.setOnClickListener(v -> {
             cancelled.set(true);
             AiClient c = currentClient[0];
@@ -611,7 +614,7 @@ public final class AiEditDialog {
                 c.cancel();
             }
             showConfigDialog(pluginUI, context, prefs, dialog, () -> {
-                // 配置保存后：刷新主界面当前方案与模型
+                // After config saved: refresh main UI current profile and model
                 String active = Prefs.getString(prefs, Prefs.KEY_ACTIVE_PROFILE, "p1");
                 profileSel[0] = "p2".equals(active) ? 1 : ("p3".equals(active) ? 2 : 0);
                 String[] cfg = readProfile(prefs, active);
@@ -625,12 +628,12 @@ public final class AiEditDialog {
             });
         });
 
-        // 注意：设置与关于入口已移入「配置」弹窗；打开时不自动弹出输入法
+        // Note: Settings and About entries moved into "Config" popup; input method not auto-popped on open
     }
 
-    /* ---------- 配置弹窗 ---------- */
+    /* ---------- Config popup ---------- */
 
-    /** 打开「配置」弹窗：选择配置方案 + 服务商 + 模型，内含设置/关于入口 */
+    /** Open "Config" popup: select config profile + provider + model, includes settings/about entry */
     private static void showConfigDialog(@NonNull PluginUI pluginUI,
                                          @NonNull PluginContext context,
                                          @NonNull SharedPreferences prefs,
@@ -653,7 +656,7 @@ public final class AiEditDialog {
 
         PluginView view = pluginUI.buildVerticalLayout()
                 .paddingTop(pluginUI.dialogPaddingVertical() / 2)
-                // 配置方案
+                // Config profile
                 .addTextView("profileLabel").text(context.getString("dialog_profile_label")).textSize(12)
                 .addSpinner("profile")
                 .items(Arrays.asList(
@@ -663,7 +666,7 @@ public final class AiEditDialog {
                 .selection(profileDefault)
                 .onItemSelected((spinner, position) -> {
                     profileSel[0] = position;
-                    // 切换方案：带出该方案服务商与模型
+                    // Switch profile: bring up that profile's provider and model
                     String[] cfg = readProfile(prefs, profileId(position));
                     int pi = providerIds.indexOf(cfg[0]);
                     if (pi >= 0) {
@@ -690,7 +693,7 @@ public final class AiEditDialog {
                         }
                     }
                 })
-                // 服务商
+                // Provider
                 .addTextView("providerLabel").text(context.getString("dialog_provider_label")).textSize(12)
                 .addSpinner("provider")
                 .items(providerNames)
@@ -698,7 +701,7 @@ public final class AiEditDialog {
                 .onItemSelected((spinner, position) -> {
                     int previous = providerSel[0];
                     providerSel[0] = position;
-                    // 切换服务商自动带出默认模型（用户自定义过的模型不覆盖）
+                    // Switch provider auto-brings default model (user-customized models not overwritten)
                     PluginEditText me = modelRef[0];
                     if (me != null) {
                         String current = me.getText().toString().trim();
@@ -712,10 +715,10 @@ public final class AiEditDialog {
                         }
                     }
                 })
-                // 模型
+                // Model
                 .addTextView("modelLabel").text(context.getString("dialog_model_label")).textSize(12)
                 .addEditText("model").text(initCfg[3]).hint(context.getString("dialog_model_hint"))
-                // 设置 / 关于
+                // Settings / About
                 .addHorizontalLayout().children(row -> row
                         .addButton("cfgSettings").text(context.getString("dialog_settings_btn"))
                         .width(0).layoutWeight(1)
@@ -732,7 +735,7 @@ public final class AiEditDialog {
                 .setTitle(context.getString("dialog_config_btn"))
                 .setView(view)
                 .setPositiveButton(context.getString("dialog_ok_btn"), (dialog, which) -> {
-                    // 保存：写入当前方案的服务商与模型 + 切换默认方案
+                    // Save: write current profile's provider and model + switch default profile
                     String profile = profileId(profileSel[0]);
                     Prefs.putString(prefs, Prefs.KEY_ACTIVE_PROFILE, profile);
                     Prefs.putString(prefs, profileKeyPrefix(profile) + "provider",
@@ -745,11 +748,11 @@ public final class AiEditDialog {
                 .setNegativeButton(context.getString("dialog_cancel_btn"), (dialog, which) -> dialog.dismiss())
                 .show();
 
-        // 配置弹窗内的 设置/关于 入口
+        // Settings / About entry inside config popup
         view.requireViewById("cfgSettings").setOnClickListener(v -> {
             cfgDialog.dismiss();
             mainDialog.dismiss();
-            pluginUI.showPreference(null); // null = 主设置界面
+            pluginUI.showPreference(null); // null = main settings screen
         });
         view.requireViewById("cfgAbout").setOnClickListener(v -> {
             cfgDialog.dismiss();
@@ -758,7 +761,7 @@ public final class AiEditDialog {
         });
     }
 
-    /* ---------- 配置方案 ---------- */
+    /* ---------- Config profiles ---------- */
 
     private static String providerName(String providerId) {
         try {
@@ -773,11 +776,11 @@ public final class AiEditDialog {
     }
 
     private static String profileKeyPrefix(String profile) {
-        // p1 复用旧全局 key（兼容旧版本用户配置）；p2/p3 使用 p2_ / p3_ 前缀
+        // p1 reuses old global key (compatible with old user config); p2/p3 use p2_ / p3_ prefixes
         return "p1".equals(profile) ? "" : profile + "_";
     }
 
-    /** 读取方案配置：返回 [providerId, apiKey, baseUrl, model] */
+    /** Read profile config: return [providerId, apiKey, baseUrl, model] */
     private static String[] readProfile(SharedPreferences prefs, String profile) {
         String prefix = profileKeyPrefix(profile);
         return new String[]{
@@ -788,72 +791,72 @@ public final class AiEditDialog {
         };
     }
 
-    /** 读取方案对应的接口协议（p1 复用旧全局 key；p2/p3 使用各自前缀 key） */
+    /** Read interface protocol corresponding to profile (p1 reuses old global key; p2/p3 use respective prefix keys) */
     private static String readProtocol(SharedPreferences prefs, String profile) {
         return Prefs.getString(prefs, profileKeyPrefix(profile) + "protocol",
                 ProviderRegistry.Protocol.OPENAI);
     }
 
-    /* ---------- 提示词构造 ---------- */
+    /* ---------- Prompt construction ---------- */
 
     private static String buildUserPrompt(int scope, String instruction, String selectedText,
                                           String filePath, String fileName, String fullText,
                                           int cursorPos, String mode) {
-        String path = TextUtils.isEmpty(filePath) ? (TextUtils.isEmpty(fileName) ? "未知" : fileName) : filePath;
-        String name = TextUtils.isEmpty(fileName) ? "未知" : fileName;
+        String path = TextUtils.isEmpty(filePath) ? (TextUtils.isEmpty(fileName) ? "Unknown" : fileName) : filePath;
+        String name = TextUtils.isEmpty(fileName) ? "Unknown" : fileName;
         if (scope == SCOPE_FULL) {
             if (Prefs.MODE_PLAN.equals(mode)) {
-                // Plan 模式：只分析、出方案，不要输出原文
-                return "你在帮助用户分析一个文本文件（当前为 Plan 只读模式）。"
-                        + "请根据用户【指令】给出问题分析与修改方案，说明涉及的位置与改法。"
-                        + "不要输出原文，也不要输出修改后的完整文件内容，不要输出任何代码块围栏。\n\n"
-                        + "文件路径：" + path + "\n"
-                        + "文件名：" + name + "\n\n"
-                        + "【指令】\n" + instruction + "\n\n"
-                        + "【当前文件内容】\n" + fullText;
+                // Plan mode: analyze only, provide solution, do not output original text
+                return "You are helping the user analyze a text file (currently Plan read-only mode)."
+                        + "Please provide problem analysis and modification plan based on user [Instruction], explaining involved locations and changes."
+                        + "Do not output original text, do not output modified full file content, do not output any code block fences.\n\n"
+                        + "File path: " + path + "\n"
+                        + "File name: " + name + "\n\n"
+                        + "[Instruction]\n" + instruction + "\n\n"
+                        + "[Current file content]\n" + fullText;
             }
-            return "你在帮助用户编辑一个文本文件。请严格按照用户【指令】修改，只输出修改后的完整文件内容。\n"
-                    + "不要输出任何解释、说明、前言或代码块围栏（不要用 ``` 包裹）。"
-                    + "如果无需修改，请原样输出文件内容。\n\n"
-                    + "文件路径：" + path + "\n"
-                    + "文件名：" + name + "\n\n"
-                    + "【指令】\n" + instruction + "\n\n"
-                    + "【当前文件内容】\n" + fullText;
+            return "You are helping the user edit a text file. Please strictly follow user [Instruction] to modify, output only the modified full file content.\n"
+                    + "Do not output any explanation, description, preamble or code block fences (do not wrap with ```)."
+                    + "If no modification needed, output file content as-is.\n\n"
+                    + "File path: " + path + "\n"
+                    + "File name: " + name + "\n\n"
+                    + "[Instruction]\n" + instruction + "\n\n"
+                    + "[Current file content]\n" + fullText;
         }
         if (scope == SCOPE_SELECTED) {
-            return "你在帮助用户编辑文件中的一段文本。请严格按照用户【指令】修改下面给出的选中内容，"
-                    + "只输出修改后的内容（用于替换选中部分），不要输出任何解释、说明或代码块围栏。\n\n"
-                    + "【指令】\n" + instruction + "\n\n"
-                    + "【选中内容】\n" + selectedText;
+            return "You are helping the user edit a segment of text in a file. Please strictly follow user [Instruction] to modify the selected content given below,"
+                    + "output only the modified content (used to replace the selected part), do not output any explanation, description or code block fences.\n\n"
+                    + "[Instruction]\n" + instruction + "\n\n"
+                    + "[Selected content]\n" + selectedText;
         }
-        // SCOPE_CURSOR：fullText 为光标附近窗口，cursorPos 为窗口内相对偏移
+        // SCOPE_CURSOR: fullText is window near cursor, cursorPos is relative offset within window
         int len = fullText.length();
         int pos = Math.max(0, Math.min(cursorPos, len));
         String before = fullText.substring(0, pos);
         String after = fullText.substring(pos, len);
-        return "你在帮助用户向文件中插入内容。请严格按照用户【指令】生成要插入的文本，"
-                + "只输出需要插入的内容本身，不要输出任何解释、说明或代码块围栏。\n\n"
-                + "【指令】\n" + instruction + "\n\n"
-                + "【插入点之前的内容（节选）】\n" + before + "\n\n"
-                + "【插入点之后的内容（节选）】\n" + after;
+        return "You are helping the user insert content into a file. Please strictly follow user [Instruction] to generate text to insert,"
+                + "output only the content to insert itself, do not output any explanation, description or code block fences.\n\n"
+                + "[Instruction]\n" + instruction + "\n\n"
+                + "[Content before insertion point (excerpt)]\n" + before + "\n\n"
+                + "[Content after insertion point (excerpt)]\n" + after;
     }
 
     /* ---------- Plan / Act ---------- */
 
-    /** 按当前模式动态构建 System Prompt：Plan=只读分析，Act=执行写入 */
+    /** Dynamically build System Prompt by current mode: Plan=read-only analysis, Act=execute write */
     private static String buildSystemPrompt(String base, String mode) {
         if (Prefs.MODE_ACT.equals(mode)) {
-            return base + "\n\n【当前模式：Act（执行）】用户已批准方案，请开始执行："
-                    + "直接输出修改后的完整内容，严格按之前 Plan 的分析结论执行，不要输出方案或解释。";
+            return base + "\n\n[Current mode: Act (Execute)] User has approved the plan, please start executing:"
+                    + "Directly output modified full content, strictly execute based on previous Plan analysis conclusions, do not output plan or explanation.";
         }
-        return base + "\n\n【当前模式：Plan（只读分析）】你只能进行分析、方案设计和代码审查，"
-                + "不要输出原文，也不要输出修改后的完整文件内容（文件不会被修改）。"
-                + "请只输出问题分析与修改方案（含涉及位置与改法），不要包含任何原文内容。";
+        return base + "\n\n[Current mode: Plan (Read-only Analysis)] You can only perform analysis, solution design and code review,"
+                + "Do not output original text, do not output modified full file content (file will not be modified)."
+                + "Please only output problem analysis and modification plan (including involved locations and changes), do not include any original text content.";
     }
 
-    /* ---------- 工具 ---------- */
+    /* ---------- Utilities ---------- */
 
-    /** 粗略估算 tokens：中文/全角按 1 token/字符，其余按 4 字符/token */
+    /** Roughly estimate tokens: CJK/full-width 1 token/char, others 4 chars/token */
     private static long estimateTokens(List<ChatMessage> messages) {
         long total = 0;
         for (ChatMessage m : messages) {
@@ -876,20 +879,20 @@ public final class AiEditDialog {
         return cjk + (len - cjk + 3) / 4;
     }
 
-    /** 移动光标到末尾（附带滚动跟随），保证流式输出最下方内容可见 */
+    /** Move cursor to end (with scroll follow), ensure bottom content of streaming output is visible */
     private static void moveCursorToEnd(PluginEditText editText) {
         try {
             int len = editText.getText().length();
             editText.setSelection(len);
         } catch (Throwable ignored) {
-            // 极端情况下忽略，不影响主流程
+            // Ignore in extreme cases, does not affect main flow
         }
     }
 
-    /** Plan 模式引导语兜底：仅当输出包含可执行修改方案且未提示切换 Act 时，追加引导句 */
+    /** Plan mode guide fallback: only append guide sentence when output contains executable modification plan and no Act switch hint */
 
 
-    /** 打开导出弹窗：可指定目录 + 文件名格式（{title}/{date}/{time}），目录自动记忆 */
+    /** Open export popup: can specify directory + filename format ({title}/{date}/{time}), directory auto-remembered */
     private static void showExportDialog(@NonNull PluginUI pluginUI,
                                          @NonNull PluginContext context,
                                          @NonNull SharedPreferences prefs,
@@ -903,21 +906,21 @@ public final class AiEditDialog {
 
         PluginView view = pluginUI.buildVerticalLayout()
                 .paddingTop(pluginUI.dialogPaddingVertical() / 2)
-                // 目录
+                // Directory
                 .addTextView("dirLabel").text(context.getString("dialog_export_dir_label")).textSize(12)
                 .addEditText("exportDir").text(savedDir)
                 .hint(context.getFilesDir() == null ? "" : context.getFilesDir().getAbsolutePath())
-                // 选择目录（常用目录快捷选择，仍可手动输入）
+                // Select directory (common directory quick selection, manual input still available)
                 .addTextView("pickDir").text(context.getString("dialog_export_pick"))
                 .textSize(13).textColor(0xFF4CAF50).paddingTopDp(2)
-                // 文件名格式
+                // Filename format
                 .addTextView("nameLabel").text(context.getString("dialog_export_name_label")).textSize(12)
                 .addEditText("exportName").text(savedName)
                 .hint(Prefs.DEFAULT_EXPORT_NAME)
-                // 占位符说明
+                // Placeholder description
                 .addTextView("phHint").text(context.getString("dialog_export_ph")).textSize(12)
                 .textColor(pluginUI.colorTextSecondary())
-                // 实时预览
+                // Real-time preview
                 .addTextView("preview").textSize(12).textColor(pluginUI.colorTextSecondary())
                 .build();
 
@@ -966,7 +969,7 @@ public final class AiEditDialog {
                     }
                     String name = resolveExportName(
                             nameEdit.getText() == null ? "" : nameEdit.getText().toString(), title);
-                    // 记忆目录与文件名格式
+                    // Remember directory and filename format
                     Prefs.putString(prefs, Prefs.KEY_EXPORT_DIR, dirFile.getAbsolutePath());
                     Prefs.putString(prefs, Prefs.KEY_EXPORT_NAME,
                             nameEdit.getText() == null ? "" : nameEdit.getText().toString().trim());
@@ -977,7 +980,7 @@ public final class AiEditDialog {
                 .show();
     }
 
-    /** 目录快捷选择：常用目录列表，点击填入（保留手动输入） */
+    /** Directory quick selection: common directory list, click to fill (manual input retained) */
     private static void showDirPicker(@NonNull PluginUI pluginUI,
                                       @NonNull PluginContext context,
                                       @NonNull SharedPreferences prefs,
@@ -990,15 +993,15 @@ public final class AiEditDialog {
                 "/sdcard/AIedit",
                 saved == null || saved.isEmpty() ? (filesDir == null ? "/sdcard" : filesDir.getAbsolutePath()) : saved
         };
-        // 去重
+        // Deduplicate
         java.util.LinkedHashSet<String> set = new java.util.LinkedHashSet<>();
         for (String d : dirs) {
             if (d != null && !d.isEmpty()) {
                 set.add(d);
             }
         }
-        // 动态构建选择列表（builder 链式追加，不能往已构建的 PluginView 上添加控件）
-        // 用数组持有弹窗引用（show 之前无法取得），列表项点击后设置目录并自动关闭
+        // Dynamically build selection list (builder chain append, cannot add controls to already-built PluginView)
+        // Use array to hold popup reference (cannot obtain before show), list item click sets directory and auto-closes
         final PluginDialog[] pickDialog = new PluginDialog[1];
         PluginUIBuilder builder = pluginUI.buildVerticalLayout()
                 .paddingTop(pluginUI.dialogPaddingVertical() / 2);
@@ -1020,7 +1023,7 @@ public final class AiEditDialog {
                 .show();
     }
 
-    /** 按占位符解析文件名：{title}/{date}/{time}，并清理非法字符 */
+    /** Parse filename by placeholders: {title}/{date}/{time}, and clean illegal characters */
     private static String resolveExportName(String format, String title) {
         String s = format == null ? "" : format.trim();
         if (s.isEmpty()) {
@@ -1036,7 +1039,7 @@ public final class AiEditDialog {
         return s.replaceAll("[\\\\/:*?\"<>|]", "_");
     }
 
-    /** 导出会话到指定文件 */
+    /** Export conversation to specified file */
     private static void exportConversationTo(@NonNull PluginUI pluginUI,
                                              @NonNull File dir,
                                              @NonNull String name,
@@ -1047,21 +1050,21 @@ public final class AiEditDialog {
         try {
             File file = new File(dir, name);
             StringBuilder sb = new StringBuilder();
-            sb.append("===== AI文本编辑 会话记录 =====\n");
-            sb.append("时间：").append(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+            sb.append("===== AI Text Editor Conversation Record =====\n");
+            sb.append("Time: ").append(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
                     .format(new Date())).append("\n");
-            sb.append("模式：").append(Prefs.MODE_ACT.equals(mode) ? "Act（执行）" : "Plan（只读）").append("\n");
-            sb.append("模型：").append(model == null ? "" : model).append("\n\n");
+            sb.append("Mode: ").append(Prefs.MODE_ACT.equals(mode) ? "Act (Execute)" : "Plan (Read-only)").append("\n");
+            sb.append("Model: ").append(model == null ? "" : model).append("\n\n");
             for (ChatMessage m : history) {
                 if (m == null || m.content == null) {
                     continue;
                 }
-                sb.append(ChatMessage.ROLE_USER.equals(m.role) ? "[用户] " : "[AI] ")
+                sb.append(ChatMessage.ROLE_USER.equals(m.role) ? "[User] " : "[AI] ")
                         .append(m.content).append("\n\n");
             }
             String cur = resultBox.getText() == null ? "" : resultBox.getText().toString();
             if (cur.length() > 0) {
-                sb.append("[AI 当前输出] ").append(cur).append("\n");
+                sb.append("[AI current output] ").append(cur).append("\n");
             }
             BufferedWriter w = new BufferedWriter(new FileWriter(file));
             w.write(sb.toString());
@@ -1073,7 +1076,7 @@ public final class AiEditDialog {
         }
     }
 
-    /** 去掉 AI 输出首尾包裹的 ```代码块围栏（仅当整个输出首尾都是围栏时） */
+    /** Remove ``` code block fences wrapped at start/end of AI output (only when entire output start/end are fences) */
     static String sanitizeResult(String text) {
         String t = text == null ? "" : text.trim();
         if (t.startsWith("```")) {

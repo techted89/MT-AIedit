@@ -18,13 +18,13 @@ import okhttp3.RequestBody;
 import okhttp3.Response;
 
 /**
- * OpenAI 兼容协议客户端（/chat/completions）。
- * 适用于：OpenAI、DeepSeek、通义千问(兼容模式)、Kimi、智谱GLM、SiliconFlow、
- * Ollama(OpenAI 兼容接口) 以及任意 OpenAI 兼容网关/中转站。
+ * OpenAI-compatible protocol client (/chat/completions).
+ * Applies to: OpenAI, DeepSeek, Qwen (compatible mode), Kimi, Zhipu GLM, SiliconFlow,
+ * Ollama (OpenAI-compatible interface) and any OpenAI-compatible gateway/proxy.
  *
- * 支持流式（SSE）与非流式两种响应；通用工具方法统一走 {@link ApiUtils}。
- * 思考型模型（DeepSeek-R1 等）的 reasoning_content 通过 {@link Callback#onReasoning} 单独回调，
- * 不混入正式结果；finish_reason=length 时通过 {@link Callback#onTruncated} 提示截断。
+ * Supports streaming (SSE) and non-streaming responses; common utility methods go through {@link ApiUtils}.
+ * Reasoning models (DeepSeek-R1 etc.) reasoning_content is separately callbacked via {@link Callback#onReasoning},
+ * not mixed into the formal result; finish_reason=length triggers {@link Callback#onTruncated} truncation hint.
  */
 public final class OpenAiCompatibleClient implements AiClient {
 
@@ -37,7 +37,7 @@ public final class OpenAiCompatibleClient implements AiClient {
     private final int maxTokens;
     private final int timeoutSec;
 
-    /** 当前进行中的请求（用于 cancel() 中断底层连接） */
+    /** Current ongoing request (used by cancel() to interrupt the underlying connection) */
     private volatile Call currentCall;
 
     public OpenAiCompatibleClient(String baseUrl, String apiKey, String model,
@@ -86,7 +86,7 @@ public final class OpenAiCompatibleClient implements AiClient {
                     return;
                 }
                 if (response.body() == null) {
-                    callback.onError("响应为空");
+                    callback.onError("Empty response");
                     return;
                 }
                 parseBody(response, callback, cancelled);
@@ -129,7 +129,7 @@ public final class OpenAiCompatibleClient implements AiClient {
                 }
                 try {
                     JSONObject obj = new JSONObject(data);
-                    // 流式最后 chunk 常携带 usage（OpenAI 兼容格式）
+                    // Last chunk of stream often carries usage (OpenAI-compatible format)
                     JSONObject usage = ApiUtils.optObject(obj, "usage");
                     if (usage != null) {
                         long pt = ApiUtils.optLong(usage, "prompt_tokens", -1);
@@ -140,7 +140,7 @@ public final class OpenAiCompatibleClient implements AiClient {
                     }
                     JSONObject choice = ApiUtils.optObjectAt(ApiUtils.optArray(obj, "choices"), 0);
                     if (choice != null) {
-                        // 思考型模型（DeepSeek-R1 等）：reasoning_content 与正式 content 分离
+                        // Reasoning model (DeepSeek-R1 etc.): reasoning_content and formal content separated
                         JSONObject delta = ApiUtils.optObject(choice, "delta");
                         String reason = delta == null ? null : ApiUtils.optString(delta, "reasoning_content");
                         if (reason == null && delta != null) {
@@ -163,13 +163,13 @@ public final class OpenAiCompatibleClient implements AiClient {
                                 return;
                             }
                         }
-                        // 输出被 max_tokens 截断（finish_reason=length）
+                        // Output truncated by max_tokens (finish_reason=length)
                         if ("length".equals(ApiUtils.optString(choice, "finish_reason"))) {
                             truncated[0] = true;
                         }
                     }
                 } catch (Throwable ignored) {
-                    // 忽略无法解析的行
+                    // Ignore lines that cannot be parsed
                 }
             } else if (line.length() > 0) {
                 raw.append(line);
@@ -198,14 +198,14 @@ public final class OpenAiCompatibleClient implements AiClient {
             if (content != null) {
                 callback.onFinished(content);
             } else {
-                callback.onError("响应格式无法解析");
+                callback.onError("Response format cannot be parsed");
             }
         } catch (Throwable t) {
-            callback.onError("响应解析失败：" + t.getMessage());
+            callback.onError("Response parsing failed: " + t.getMessage());
         }
     }
 
-    /** 从完整 JSON 中提取 choices[0].message.content */
+    /** Extract choices[0].message.content from full JSON */
     private String extractContent(String body) throws Exception {
         String text = body.trim();
         if (text.startsWith("[")) {

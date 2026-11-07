@@ -3,14 +3,14 @@ plugins {
     alias(libs.plugins.mt.plugin)
 }
 
-// 加快构建速度
+// Speed up build
 tasks.configureEach { task ->
     if (task.name.contains("lint")) {
         task.enabled = false
     }
 }
 
-// 定义 Java 版本
+// Define Java version
 def javaVersion = JavaVersion.VERSION_17
 
 android {
@@ -43,11 +43,11 @@ android {
 
 dependencies {
     coreLibraryDesugaring libs.desugar.jdk.libs
-    // OkHttp、bin.mt.json、androidx.annotation 由 SDK 传递依赖提供，无需额外声明
+    // OkHttp, bin.mt.json, androidx.annotation provided by SDK transitive dependencies, no extra declaration needed
 }
 
 /**
- * MT 插件配置
+ * MT Plugin configuration
  */
 mtPlugin {
     pushTarget = "auto"

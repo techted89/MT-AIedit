@@ -13,17 +13,17 @@ import bin.mt.plugin.api.editor.TextEditor;
 import bin.mt.plugin.api.ui.PluginUI;
 
 /**
- * 文本编辑器「编辑」工具栏菜单项：AI 编辑。
+ * Text editor "Edit" toolbar menu item: AI Edit.
  *
- * 用户入口：MT 管理器文本编辑器顶部工具栏的「编辑」菜单中的「AI 编辑」项。
- * 菜单项右侧的按钮（onPluginButtonClick）弹出「关于/社区」对话框。
+ * User entry: "AI Edit" item in the "Edit" menu of the MT Manager text editor top toolbar.
+ * The button on the right of the menu item (onPluginButtonClick) pops up the "About / Community" dialog.
  */
 public class AiEditToolMenu extends BaseTextEditorToolMenu {
 
     @NonNull
     @Override
     public String name() {
-        // 本地化文案，见 assets/strings*.mtl
+        // Localized text, see assets/strings*.mtl
         return "{menu_ai_edit}";
     }
 
@@ -33,14 +33,14 @@ public class AiEditToolMenu extends BaseTextEditorToolMenu {
         try {
             return MaterialIcons.get("auto_awesome");
         } catch (Throwable t) {
-            // 图标名兜底，保证不崩溃
+            // Icon name fallback, ensure no crash
             return MaterialIcons.get("edit");
         }
     }
 
     @Override
     public boolean checkVisible(@NonNull TextEditor editor) {
-        // 只读模式下不显示
+        // Not shown in read-only mode
         return editor != null && !editor.isReadOnly();
     }
 
@@ -51,7 +51,7 @@ public class AiEditToolMenu extends BaseTextEditorToolMenu {
 
     @Override
     public void onPluginButtonClick(@NonNull PluginUI pluginUI) {
-        // ⓘ 按钮：关于/社区对话框（官网、QQ频道、群号）
+        // ⓘ Button: About / Community dialog (website, QQ channel, group numbers)
         AboutDialog.show(pluginUI);
     }
 }

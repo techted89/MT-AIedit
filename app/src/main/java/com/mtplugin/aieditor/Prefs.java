@@ -3,9 +3,9 @@ package com.mtplugin.aieditor;
 import android.content.SharedPreferences;
 
 /**
- * 插件配置读写（存储于 PluginContext.getPreferences() 的 SharedPreferences）。
- * 注意：设置界面（PluginPreference）中的 Key 必须与本文件的 Key 完全一致，
- * 这样用户在设置界面修改的值，对话框才能直接读到。
+ * Plugin config read/write (stored in SharedPreferences of PluginContext.getPreferences()).
+ * Note: Keys in the Settings interface (PluginPreference) must match this file's Keys exactly,
+ * so values modified by the user in the Settings interface can be read directly by the dialog.
  */
 public final class Prefs {
 
@@ -19,20 +19,21 @@ public final class Prefs {
     public static final String KEY_TIMEOUT_SEC = "timeout_sec";
     public static final String KEY_SYSTEM_PROMPT = "system_prompt";
     public static final String KEY_SHOW_TOKENS = "show_tokens_usage";
-    /** 当前使用的配置方案：p1 / p2 / p3（p1 复用旧全局 key） */
+    /** Current config profile in use: p1 / p2 / p3 (p1 reuses the old global key) */
     public static final String KEY_ACTIVE_PROFILE = "active_profile";
-    /** 工作模式：plan（只读分析） / act（执行写入），默认 plan */
+    /** Work mode: plan (read-only analysis) / act (execute write), default plan */
     public static final String KEY_MODE = "mode";
     public static final String MODE_PLAN = "plan";
     public static final String MODE_ACT = "act";
-    /** 导出设置：目录（自动记忆）+ 文件名格式（支持 {title}/{date}/{time} 占位符） */
+    /** Export settings: directory (auto-remembered) + filename format (supports {title}/{date}/{time} placeholders) */
     public static final String KEY_EXPORT_DIR = "export_dir";
     public static final String KEY_EXPORT_NAME = "export_name";
     public static final String DEFAULT_EXPORT_NAME = "conversation_{title}_{date}_{time}.txt";
 
     public static final String DEFAULT_SYSTEM_PROMPT =
-            "你是一个专业的技术编辑助手，擅长代码与各类文本的修改。"
-                    + "请严格遵循用户的指令，只输出编辑后的内容本身，不要输出任何解释、前言或代码块围栏。";
+            "You are a professional technical editing assistant, skilled at modifying code and various texts."
+                    + "Please strictly follow the user's instructions, output only the edited content itself, "
+                    + "do not output any explanation, preamble, or code block fences.";
 
     private Prefs() {
     }

@@ -18,9 +18,9 @@ import okhttp3.RequestBody;
 import okhttp3.Response;
 
 /**
- * Anthropic Claude Messages API 客户端（/messages）。
- * 使用 x-api-key 请求头 + anthropic-version 版本头，支持 stream 流式输出。
- * 通用工具方法统一走 {@link ApiUtils}。
+ * Anthropic Claude Messages API client (/messages).
+ * Uses x-api-key request header + anthropic-version version header, supports stream output.
+ * Common utility methods go through {@link ApiUtils}.
  */
 public final class ClaudeClient implements AiClient {
 
@@ -33,7 +33,7 @@ public final class ClaudeClient implements AiClient {
     private final int maxTokens;
     private final int timeoutSec;
 
-    /** 当前进行中的请求（用于 cancel() 中断底层连接） */
+    /** Current ongoing request (used by cancel() to interrupt the underlying connection) */
     private volatile Call currentCall;
 
     public ClaudeClient(String baseUrl, String apiKey, String model,
@@ -80,7 +80,7 @@ public final class ClaudeClient implements AiClient {
             if (!apiKey.isEmpty()) {
                 rb.header("x-api-key", apiKey);
             }
-            // 某些 Claude 代理不需要 Key 时允许留空
+            // Some Claude proxies allow leaving Key empty
 
             OkHttpClient client = ApiUtils.buildClient(timeoutSec);
             Call call = client.newCall(rb.build());
@@ -92,7 +92,7 @@ public final class ClaudeClient implements AiClient {
                     return;
                 }
                 if (response.body() == null) {
-                    callback.onError("响应为空");
+                    callback.onError("Empty response");
                     return;
                 }
                 parseBody(response, callback, cancelled);
@@ -131,7 +131,7 @@ public final class ClaudeClient implements AiClient {
                 }
                 try {
                     JSONObject obj = new JSONObject(data);
-                    // Claude Messages 的 usage 随 message_start / message_delta 返回
+                    // Claude Messages usage returned with message_start / message_delta
                     JSONObject usage = ApiUtils.optObject(obj, "usage");
                     if (usage != null) {
                         long pt = ApiUtils.optLong(usage, "input_tokens", -1);
@@ -140,7 +140,7 @@ public final class ClaudeClient implements AiClient {
                             callback.onUsage(pt, ct);
                         }
                     }
-                    // 输出被 max_tokens 截断（stop_reason=max_tokens）
+                    // Output truncated by max_tokens (stop_reason=max_tokens)
                     if ("max_tokens".equals(ApiUtils.optString(obj, "stop_reason"))) {
                         callback.onTruncated();
                     }
@@ -149,7 +149,7 @@ public final class ClaudeClient implements AiClient {
                         JSONObject delta = ApiUtils.optObject(obj, "delta");
                         String deltaType = delta == null ? null : ApiUtils.optString(delta, "type");
                         if ("thinking_delta".equals(deltaType)) {
-                            // Claude thinking 块：单独回调，不混入结果
+                            // Claude thinking block: separate callback, not mixed into result
                             String thinking = ApiUtils.optString(delta, "thinking");
                             if (thinking != null && !thinking.isEmpty()) {
                                 callback.onThinking(thinking);
@@ -170,11 +170,11 @@ public final class ClaudeClient implements AiClient {
                     } else if ("error".equals(type)) {
                         JSONObject err = ApiUtils.optObject(obj, "error");
                         String msg = err == null ? null : ApiUtils.optString(err, "message");
-                        callback.onError(msg == null || msg.isEmpty() ? "未知错误" : msg);
+                        callback.onError(msg == null || msg.isEmpty() ? "Unknown error" : msg);
                         return;
                     }
                 } catch (Throwable ignored) {
-                    // 忽略无法解析的行
+                    // Ignore lines that cannot be parsed
                 }
             } else if (line.length() > 0) {
                 raw.append(line);
@@ -200,21 +200,21 @@ public final class ClaudeClient implements AiClient {
             if (text != null) {
                 callback.onFinished(text);
             } else {
-                callback.onError("响应格式无法解析");
+                callback.onError("Response format cannot be parsed");
             }
         } catch (Throwable t) {
-            callback.onError("响应解析失败：" + t.getMessage());
+            callback.onError("Response parsing failed: " + t.getMessage());
         }
     }
 
-    /** 从非流式 JSON 中提取 content[0].text */
+    /** Extract content[0].text from non-streaming JSON */
     private String extractContent(JSONObject obj) throws Exception {
         JSONObject first = ApiUtils.optObjectAt(ApiUtils.optArray(obj, "content"), 0);
         if (first == null) {
             JSONObject err = ApiUtils.optObject(obj, "error");
             if (err != null) {
                 String msg = ApiUtils.optString(err, "message");
-                throw new Exception(msg == null || msg.isEmpty() ? "未知错误" : msg);
+                throw new Exception(msg == null || msg.isEmpty() ? "Unknown error" : msg);
             }
             return null;
         }

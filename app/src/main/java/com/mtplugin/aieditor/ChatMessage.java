@@ -3,8 +3,8 @@ package com.mtplugin.aieditor;
 import androidx.annotation.NonNull;
 
 /**
- * 对话消息（role + content）。
- * OpenAI 兼容与 Anthropic 协议都使用 (role, content) 结构，Gemini 转换时取 user 文本。
+ * Chat message (role + content).
+ * OpenAI-compatible and Anthropic protocols both use (role, content) structure; Gemini conversion takes user text.
  */
 public final class ChatMessage {
 

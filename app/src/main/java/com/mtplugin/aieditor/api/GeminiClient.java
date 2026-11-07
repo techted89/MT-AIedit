@@ -18,10 +18,10 @@ import okhttp3.RequestBody;
 import okhttp3.Response;
 
 /**
- * Google Gemini 客户端（streamGenerateContent）。
- * API Key 通过 x-goog-api-key 请求头（同时附带 query 参数双保险）传递。
- * 支持 alt=sse 流式响应；对非流式 JSON（对象或数组）也能解析。
- * 通用工具方法统一走 {@link ApiUtils}。
+ * Google Gemini client (streamGenerateContent).
+ * API Key passed via x-goog-api-key request header (with query parameter as double insurance).
+ * Supports alt=sse streaming response; non-streaming JSON (object or array) can also be parsed.
+ * Common utility methods go through {@link ApiUtils}.
  */
 public final class GeminiClient implements AiClient {
 
@@ -34,7 +34,7 @@ public final class GeminiClient implements AiClient {
     private final int maxTokens;
     private final int timeoutSec;
 
-    /** 当前进行中的请求（用于 cancel() 中断底层连接） */
+    /** Current ongoing request (used by cancel() to interrupt the underlying connection) */
     private volatile Call currentCall;
 
     public GeminiClient(String baseUrl, String apiKey, String model,
@@ -44,7 +44,7 @@ public final class GeminiClient implements AiClient {
         this.temperature = temperature;
         this.maxTokens = maxTokens;
         this.timeoutSec = timeoutSec;
-        // URLEncoder.encode(String, Charset) 需要 API 33+，这里用兼容所有版本的 String 重载
+        // URLEncoder.encode(String, Charset) requires API 33+, here using String overload compatible with all versions
         this.url = ApiUtils.trimSlash(baseUrl) + "/models/" + ApiUtils.urlEncode(model)
                 + ":streamGenerateContent?alt=sse&key=" + ApiUtils.urlEncode(this.apiKey);
     }
@@ -104,7 +104,7 @@ public final class GeminiClient implements AiClient {
                     return;
                 }
                 if (response.body() == null) {
-                    callback.onError("响应为空");
+                    callback.onError("Empty response");
                     return;
                 }
                 parseBody(response, callback, cancelled);
@@ -142,7 +142,7 @@ public final class GeminiClient implements AiClient {
                     continue;
                 }
                 try {
-                    // Gemini 的 usageMetadata 位于每块顶层（流式一般在最后一块返回）
+                    // Gemini usageMetadata located at top of each chunk (streaming generally returned in last chunk)
                     JSONObject gemObj = new JSONObject(data);
                     JSONObject um = ApiUtils.optObject(gemObj, "usageMetadata");
                     if (um != null) {
@@ -152,7 +152,7 @@ public final class GeminiClient implements AiClient {
                             callback.onUsage(pt, ct);
                         }
                     }
-                    // 输出被 max_tokens 截断（finishReason=MAX_TOKENS）
+                    // Output truncated by max_tokens (finishReason=MAX_TOKENS)
                     JSONObject cand = ApiUtils.optObjectAt(ApiUtils.optArray(gemObj, "candidates"), 0);
                     if (cand != null && "MAX_TOKENS".equals(ApiUtils.optString(cand, "finishReason"))) {
                         callback.onTruncated();
@@ -190,16 +190,16 @@ public final class GeminiClient implements AiClient {
             if (text != null) {
                 callback.onFinished(text);
             } else {
-                callback.onError("响应格式无法解析");
+                callback.onError("Response format cannot be parsed");
             }
         } catch (Throwable t) {
-            callback.onError("响应解析失败：" + t.getMessage());
+            callback.onError("Response parsing failed: " + t.getMessage());
         }
     }
 
     /**
-     * 从 Gemini 单个候选 JSON（对象或数组）里提取拼接后的文本。
-     * Gemini 流式响应每行是一个对象；非流式可能是一个对象，也可能是对象数组。
+     * Extract concatenated text from a single Gemini candidate JSON (object or array).
+     * Gemini streaming response: each line is an object; non-streaming may be an object or an object array.
      */
     private String extractTextFromCandidate(String json) throws Exception {
         String text = json.trim();

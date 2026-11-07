@@ -8,13 +8,13 @@ import bin.mt.plugin.api.ui.PluginView;
 import bin.mt.plugin.api.ui.dialog.PluginDialog;
 
 /**
- * 关于/社区对话框。
+ * About / Community dialog.
  *
- * SDK 未提供 markdown 渲染组件，因此使用 PluginView 结构化排版：
- * 标题加粗、分割线、分区小标题与可点击链接行，以呈现接近卡片化的展示效果。
+ * SDK does not provide a markdown rendering component, so PluginView is used for structured layout:
+ * bold titles, dividers, section subtitles, and clickable link rows, to present a near-card display effect.
  *
- * 内容包含：插件名与版本、作者、社区官网、QQ 频道及两个交流群。
- * 链接行点击行为：官网打开浏览器，群号复制到剪贴板。
+ * Content includes: plugin name and version, author, community website, QQ channel, and two chat groups.
+ * Link row click behavior: website opens browser, group number copied to clipboard.
  */
 public final class AboutDialog {
 
@@ -31,17 +31,17 @@ public final class AboutDialog {
 
         PluginView view = pluginUI.buildVerticalLayout()
                 .paddingTop(pluginUI.dialogPaddingVertical() / 2)
-                // 标题（markdown 风格 #）
+                // Title (markdown style #)
                 .addTextView("title").text("{plugin_name}").bold().textSize(17)
-                // 副标题（版本 + 简介）
+                // Subtitle (version + tagline)
                 .addTextView("subtitle")
                 .text("v" + version + "  ·  " + context.getString("about_tagline"))
                 .textSize(12).textColor(pluginUI.colorTextSecondary()).paddingBottomDp(6)
-                .addTextView("author").text("👤  " + context.getString("about_author") + "：皓月千里")
+                .addTextView("author").text("👤  " + context.getString("about_author") + ": Hao Yue Qian Li")
                 .textSize(12).textColor(pluginUI.colorTextSecondary()).paddingBottomDp(6)
-                // 分割线 (---)
+                // Divider (---)
                 .addView().height(1).widthMatchParent().backgroundColor(pluginUI.colorDivider())
-                // 分区小标题 (##)
+                // Section subtitle (##)
                 .addTextView("secTitle").text(context.getString("about_community"))
                 .bold().textSize(13).paddingTopDp(8).paddingBottomDp(2)
                 .addTextView("webTitle").text("🌐  " + context.getString("about_website"))

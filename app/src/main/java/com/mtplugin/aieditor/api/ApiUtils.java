@@ -11,21 +11,21 @@ import okhttp3.OkHttpClient;
 import okhttp3.Response;
 
 /**
- * API 客户端共享工具类。
+ * API client shared utility class.
  *
- * 注意：这些方法不能放在 AiClient 接口里再被实现类用简单名调用——
- * Java 接口的 static 方法不会进入实现类作用域，必须通过接口名或工具类调用，
- * 因此统一集中在此类，客户端调用一律写 ApiUtils.xxx。
- * （ApiUtils 与客户端同包，无需 import。）
+ * Note: these methods cannot be placed in the AiClient interface for implementation classes to call by simple name---
+ * Java interface static methods do not enter the implementation class scope, must be called via interface name or utility class,
+ * therefore uniformly concentrated in this class, client calls always write ApiUtils.xxx.
+ * (ApiUtils is in the same package as clients, no import needed.)
  */
 public final class ApiUtils {
 
     private ApiUtils() {
     }
 
-    /* =============== bin.mt.json 安全取值（mnJson 风格） =============== */
+    /* =============== bin.mt.json safe access (mnJson style) =============== */
 
-    /** 取字符串成员；缺失或非字符串返回 null（不抛异常） */
+    /** Get string member; missing or non-string returns null (no exception) */
     public static long optLong(JSONObject obj, String name, long def) {
         if (obj == null || !obj.contains(name)) {
             return def;
@@ -53,7 +53,7 @@ public final class ApiUtils {
         return (v != null && v.isString()) ? v.asString() : null;
     }
 
-    /** 取对象成员；缺失或非对象返回 null */
+    /** Get object member; missing or non-object returns null */
     public static JSONObject optObject(JSONObject obj, String name) {
         if (obj == null) {
             return null;
@@ -62,7 +62,7 @@ public final class ApiUtils {
         return (v != null && v.isObject()) ? v.asObject() : null;
     }
 
-    /** 取数组成员；缺失或非数组返回 null */
+    /** Get array member; missing or non-array returns null */
     public static JSONArray optArray(JSONObject obj, String name) {
         if (obj == null) {
             return null;
@@ -71,7 +71,7 @@ public final class ApiUtils {
         return (v != null && v.isArray()) ? v.asArray() : null;
     }
 
-    /** 取数组第 index 项为对象；越界或非对象返回 null */
+    /** Get object at array index; out of bounds or non-object returns null */
     public static JSONObject optObjectAt(JSONArray arr, int index) {
         if (arr == null || index < 0 || index >= arr.size()) {
             return null;
@@ -80,9 +80,9 @@ public final class ApiUtils {
         return (v != null && v.isObject()) ? v.asObject() : null;
     }
 
-    /* =============== HTTP 工具 =============== */
+    /* =============== HTTP utilities =============== */
 
-    /** 去掉末尾的 / */
+    /** Remove trailing / */
     public static String trimSlash(String url) {
         if (url == null) {
             return "";
@@ -94,7 +94,7 @@ public final class ApiUtils {
         return s;
     }
 
-    /** 组装 OkHttpClient，统一超时 */
+    /** Assemble OkHttpClient, unified timeout */
     public static OkHttpClient buildClient(int timeoutSec) {
         int t = Math.max(15, timeoutSec);
         return new OkHttpClient.Builder()
@@ -105,7 +105,7 @@ public final class ApiUtils {
                 .build();
     }
 
-    /** 读取错误响应体（失败不抛异常） */
+    /** Read error response body (no exception on failure) */
     public static String readErrorBody(Response response) {
         try {
             if (response != null && response.body() != null) {
@@ -117,8 +117,8 @@ public final class ApiUtils {
     }
 
     /**
-     * 从错误响应体里尽量提取一行可读的错误信息。
-     * 兼容常见格式：{"error":{"message":"..."}}、{"error":"..."}、{"message":"..."} 或纯文本。
+     * Extract a readable error message from the error response body as much as possible.
+     * Compatible with common formats: {"error":{"message":"..."}}, {"error":"..."}, {"message":"..."} or plain text.
      */
     public static String extractError(String body) {
         if (body == null || body.isEmpty()) {
@@ -134,7 +134,7 @@ public final class ApiUtils {
                     if (msg != null && !msg.isEmpty()) {
                         return msg;
                     }
-                    // Claude 风格：error 对象里是 type/message
+                    // Claude style: error object has type/message
                     msg = optString(error, "type");
                     if (msg != null && !msg.isEmpty()) {
                         String detail = optString(error, "message");
@@ -150,14 +150,14 @@ public final class ApiUtils {
                     return ev.asString();
                 }
             } catch (Throwable ignored) {
-                // 继续按纯文本处理
+                // Continue processing as plain text
             }
         }
         String s = text.replace('\n', ' ').trim();
         return s.length() > 300 ? s.substring(0, 300) : s;
     }
 
-    /** 兼容 Android 5.0+ 的 URL 编码 */
+    /** URL encoding compatible with Android 5.0+ */
     public static String urlEncode(String s) {
         try {
             return URLEncoder.encode(s, "UTF-8");

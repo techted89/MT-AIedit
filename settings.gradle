@@ -9,7 +9,7 @@ pluginManagement {
         }
         mavenCentral()
         gradlePluginPortal()
-        // MT 插件 SDK 仓库
+        // MT Plugin SDK repository
         maven { url = 'https://maven.mt2.cn' }
         mavenLocal()
     }
@@ -20,7 +20,7 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        // MT 插件 SDK 仓库
+        // MT Plugin SDK repository
         maven { url = 'https://maven.mt2.cn' }
         mavenLocal()
     }
