@@ -59,9 +59,16 @@ public final class ProviderRegistry {
                             "Qwen/Qwen2.5-72B-Instruct", "THUDM/glm-4-9b-chat")),
             new Provider("openrouter", "OpenRouter", Protocol.OPENAI,
                     "https://openrouter.ai/api/v1",
-                    Arrays.asList("openrouter/auto:free", "meta-llama/llama-3.1-8b-instruct:free",
-                            "microsoft/phi-3-mini-128k-instruct:free", "google/gemma-2-9b-it:free",
-                            "qwen/qwen-2.5-7b-instruct:free", "mistralai/mistral-7b-instruct:free",
+                    Arrays.asList("openrouter/free",
+                            // Free models (:free suffix) - verified working Nov 2026
+                            "nvidia/nemotron-3.5-super-vl:free",
+                            "nvidia/nemotron-3-ultra-550b-a55b:free",
+                            "nvidia/nemotron-3.5-lightning:free",
+                            "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+                            "cohere/north-mini-code:free",
+                            "poolside/laguna-s-2.1:free",
+                            "dots-studio/dots-3-note-preview:free",
+                            // Paid models
                             "anthropic/claude-3-haiku", "openai/gpt-4o-mini",
                             "deepseek/deepseek-chat", "openai/gpt-4o",
                             "google/gemini-2.5-flash", "meta-llama/llama-3.1-405b-instruct")),
@@ -83,7 +90,9 @@ public final class ProviderRegistry {
 
     // Alibaba Cloud Bailian (Qwen OpenAI-compatible), Zhipu, etc. are all built-in;
     // any other OpenAI-compatible gateway/proxy, select "Custom" and manually fill the endpoint.
-    // OpenRouter free models use the ":free" suffix (e.g. "meta-llama/llama-3.1-8b-instruct:free").
+    // OpenRouter free models use the ":free" suffix. Free models are rate-limited
+    // (20 req/min, 50-1000 req/day) and do not require a credit purchase.
+    // See https://openrouter.ai/models for the current free model list.
 
     private static final Provider CUSTOM = findByIdInternal("custom");
 
