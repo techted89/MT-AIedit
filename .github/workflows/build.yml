@@ -58,8 +58,13 @@ jobs:
       - name: Grant execute permission to gradlew
         run: chmod +x gradlew
 
+      - name: Print build environment
+        run: |
+          java -version
+          ./gradlew --version
+
       - name: Build MTP plugin (release)
-        run: ./gradlew app:packageReleaseMtp --no-daemon
+        run: ./gradlew app:packageReleaseMtp --no-daemon --stacktrace --info
 
       - name: Upload MTP artifact
         uses: actions/upload-artifact@v4
