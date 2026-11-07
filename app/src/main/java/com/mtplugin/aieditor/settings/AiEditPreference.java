@@ -210,6 +210,8 @@ public class AiEditPreference implements PluginPreference {
                 .addItem(presetId("kimi"), "kimi")
                 .addItem(presetId("glm"), "glm")
                 .addItem(presetId("siliconflow"), "siliconflow")
+                .addItem(presetId("openrouter"), "openrouter")
+                .addItem(presetId("nim"), "nim")
                 .addItem(presetId("ollama"), "ollama")
                 .addItem(presetId("claude"), "claude")
                 .addItem(presetId("gemini"), "gemini")
