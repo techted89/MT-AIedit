@@ -1,8 +1,25 @@
 package com.mtplugin.aieditor;
 
+import android.content.SharedPreferences;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
+
+import bin.mt.json.JSONArray;
+import bin.mt.json.JSONObject;
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
 
 /**
  * Common AI provider preset registry.
@@ -10,6 +27,9 @@ import java.util.List;
  * Each preset contains: unique ID, display name, interface protocol type, default endpoint address, common model list.
  * The actual endpoint/Key/model used always follows what the user fills in the "Settings" interface;
  * these presets are only used for: dropdown options in the dialog / auto-filling common models when switching providers.
+ *
+ * Models can be dynamically fetched from each provider's /v1/models endpoint and cached in SharedPreferences.
+ * Fetched models are merged with the preset list so users always have access to the latest available models.
  */
 public final class ProviderRegistry {
 
@@ -36,6 +56,19 @@ public final class ProviderRegistry {
             this.models = models;
         }
     }
+
+    /** SharedPreferences key prefix for cached model lists per provider */
+    private static final String CACHED_MODELS_KEY_PREFIX = "cached_models_";
+
+    /** Maximum number of cached models to store per provider */
+    private static final int MAX_CACHED_MODELS = 200;
+
+    private static final MediaType JSON = MediaType.parse("application/json; charset=utf-8");
+
+    private static final OkHttpClient HTTP_CLIENT = new OkHttpClient.Builder()
+            .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+            .build();
 
     private static final List<Provider> PRESETS = Arrays.asList(
             new Provider("openai", "OpenAI", Protocol.OPENAI,
@@ -148,5 +181,106 @@ public final class ProviderRegistry {
             ids.add(p.id);
         }
         return ids;
+    }
+
+    /* =============== Dynamic model fetching =============== */
+
+    /** SharedPreferences key for a provider's cached model list */
+    private static String cachedModelsKey(String providerId) {
+        return CACHED_MODELS_KEY_PREFIX + providerId;
+    }
+
+    /** Get cached models for a provider (never null) */
+    @NonNull
+    public static List<String> getCachedModels(@NonNull SharedPreferences prefs, @NonNull String providerId) {
+        Set<String> set = prefs.getStringSet(cachedModelsKey(providerId), null);
+        if (set == null || set.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return new ArrayList<>(set);
+    }
+
+    /** Cache fetched models for a provider */
+    public static void putCachedModels(@NonNull SharedPreferences prefs, @NonNull String providerId,
+                                       @NonNull List<String> models) {
+        Set<String> set = new LinkedHashSet<>(models);
+        if (set.size() > MAX_CACHED_MODELS) {
+            set = new LinkedHashSet<>(new ArrayList<>(set).subList(0, MAX_CACHED_MODELS));
+        }
+        prefs.edit().putStringSet(cachedModelsKey(providerId), set).apply();
+    }
+
+    /** Clear cached models for a provider */
+    public static void clearCachedModels(@NonNull SharedPreferences prefs, @NonNull String providerId) {
+        prefs.edit().remove(cachedModelsKey(providerId)).apply();
+    }
+
+    /**
+     * Fetch available models from a provider's /v1/models endpoint.
+     * Only works for OpenAI-compatible protocol providers.
+     * Returns the list of model IDs, or null on failure.
+     *
+     * @param baseUrl   Provider base URL (e.g. https://integrate.api.nvidia.com/v1)
+     * @param apiKey    API key (may be empty for providers that don't require one)
+     */
+    @Nullable
+    public static List<String> fetchModelsFromEndpoint(String baseUrl, String apiKey) {
+        if (baseUrl == null || baseUrl.isEmpty()) {
+            return null;
+        }
+        String url = baseUrl.trim();
+        while (url.endsWith("/")) {
+            url = url.substring(0, url.length() - 1);
+        }
+        url += "/models";
+
+        Request.Builder rb = new Request.Builder().url(url);
+        if (apiKey != null && !apiKey.isEmpty()) {
+            rb.header("Authorization", "Bearer " + apiKey);
+        }
+
+        try (Response response = HTTP_CLIENT.newCall(rb.build()).execute()) {
+            if (!response.isSuccessful() || response.body() == null) {
+                return null;
+            }
+            String body = response.body().string();
+            JSONObject obj = new JSONObject(body);
+            JSONArray data = obj.optArray("data");
+            if (data == null) {
+                return null;
+            }
+            List<String> models = new ArrayList<>(data.size());
+            for (int i = 0; i < data.size(); i++) {
+                JSONObject item = data.optObjectAt(i);
+                if (item != null) {
+                    String id = item.optString("id");
+                    if (id != null && !id.isEmpty()) {
+                        models.add(id);
+                    }
+                }
+            }
+            Collections.sort(models);
+            return models.isEmpty() ? null : models;
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    /**
+     * Get the full model list for a provider: preset models merged with cached fetched models.
+     * Preset models appear first, followed by any additional fetched models not already in the preset.
+     */
+    @NonNull
+    public static List<String> getAllModels(@NonNull SharedPreferences prefs, @NonNull Provider provider) {
+        List<String> result = new ArrayList<>(provider.models);
+        List<String> cached = getCachedModels(prefs, provider.id);
+        Set<String> presetSet = new HashSet<>(provider.models);
+        for (String m : cached) {
+            if (!presetSet.contains(m)) {
+                result.add(m);
+                presetSet.add(m);
+            }
+        }
+        return result;
     }
 }

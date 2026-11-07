@@ -651,8 +651,25 @@ public final class AiEditDialog {
 
         final int[] profileSel = {profileDefault};
         final int[] providerSel = {providerDefault};
+        final String[] selectedModel = {initModel};
         final PluginSpinner[] providerSpinnerRef = new PluginSpinner[1];
-        final PluginEditText[] modelRef = new PluginEditText[1];
+        final PluginSpinner[] modelSpinnerRef = new PluginSpinner[1];
+
+        // Build dynamic model list for the active profile's provider
+        String activeProviderId = initCfg[0];
+        ProviderRegistry.Provider activeProvider = ProviderRegistry.findById(activeProviderId);
+        List<String> activeModels = ProviderRegistry.getAllModels(prefs, activeProvider);
+        String initModel = initCfg[3].trim();
+        if (initModel.isEmpty() && !activeModels.isEmpty()) {
+            initModel = activeModels.get(0);
+        }
+        int modelDefault = 0;
+        for (int i = 0; i < activeModels.size(); i++) {
+            if (activeModels.get(i).equals(initModel)) {
+                modelDefault = i;
+                break;
+            }
+        }
 
         PluginView view = pluginUI.buildVerticalLayout()
                 .paddingTop(pluginUI.dialogPaddingVertical() / 2)
@@ -679,19 +696,15 @@ public final class AiEditDialog {
                             }
                         }
                     }
-                    PluginEditText me = modelRef[0];
-                    if (me != null) {
-                        String m = cfg[3].trim();
-                        if (m.isEmpty()) {
-                            ProviderRegistry.Provider pp = ProviderRegistry.findById(cfg[0]);
-                            if (pp != null && !pp.models.isEmpty()) {
-                                m = pp.models.get(0);
-                            }
-                        }
-                        if (!m.isEmpty()) {
-                            me.setText(m);
-                        }
+                    // Update selected model for the new profile
+                    String[] cfg2 = readProfile(prefs, profileId(position));
+                    ProviderRegistry.Provider pp2 = ProviderRegistry.findById(cfg2[0]);
+                    List<String> models2 = ProviderRegistry.getAllModels(prefs, pp2);
+                    String m2 = cfg2[3].trim();
+                    if (m2.isEmpty() && !models2.isEmpty()) {
+                        m2 = models2.get(0);
                     }
+                    selectedModel[0] = m2;
                 })
                 // Provider
                 .addTextView("providerLabel").text(context.getString("dialog_provider_label")).textSize(12)
@@ -701,23 +714,41 @@ public final class AiEditDialog {
                 .onItemSelected((spinner, position) -> {
                     int previous = providerSel[0];
                     providerSel[0] = position;
-                    // Switch provider auto-brings default model (user-customized models not overwritten)
-                    PluginEditText me = modelRef[0];
-                    if (me != null) {
-                        String current = me.getText().toString().trim();
-                        List<String> models = ProviderRegistry.findById(providerIds.get(position)).models;
-                        List<String> oldModels = ProviderRegistry.findById(providerIds.get(previous)).models;
-                        boolean shouldFill = models != null && !models.isEmpty()
-                                && !current.isEmpty()
-                                && oldModels != null && oldModels.contains(current);
-                        if (shouldFill) {
-                            me.setText(models.get(0));
-                        }
+                    // Switch provider auto-brings default model
+                    String newProviderId = providerIds.get(position);
+                    ProviderRegistry.Provider newProvider = ProviderRegistry.findById(newProviderId);
+                    List<String> newModels = ProviderRegistry.getAllModels(prefs, newProvider);
+                    if (newModels != null && !newModels.isEmpty()) {
+                        selectedModel[0] = newModels.get(0);
                     }
                 })
-                // Model
+                // Model (dynamic dropdown with fetched + preset models)
                 .addTextView("modelLabel").text(context.getString("dialog_model_label")).textSize(12)
-                .addEditText("model").text(initCfg[3]).hint(context.getString("dialog_model_hint"))
+                .addSpinner("model")
+                .items(activeModels)
+                .selection(modelDefault)
+                .onItemSelected((spinner, position) -> {
+                    selectedModel[0] = activeModels.get(position);
+                })
+                // Refresh models button
+                .addTextView("modelRefresh").text("⟳ Refresh models")
+                .textSize(12).textColor(0xFF4CAF50).paddingTopDp(4)
+                .onClick(v -> {
+                    String pid = providerIds.get(providerSel[0]);
+                    String ak = prefs.getString(profileKeyPrefix(activeProfile(profileSel[0])) + "api_key", "");
+                    String bu = prefs.getString(profileKeyPrefix(activeProfile(profileSel[0])) + "base_url", "");
+                    String ep = (bu != null && !bu.isEmpty()) ? bu : ProviderRegistry.findById(pid).defaultBaseUrl;
+                    pluginUI.showToast("Fetching models...");
+                    new Thread(() -> {
+                        List<String> fetched = ProviderRegistry.fetchModelsFromEndpoint(ep, ak);
+                        if (fetched != null && !fetched.isEmpty()) {
+                            ProviderRegistry.putCachedModels(prefs, pid, fetched);
+                            pluginUI.showToast("Fetched " + fetched.size() + " models for " + pid);
+                        } else {
+                            pluginUI.showToast("Failed to fetch models from " + pid);
+                        }
+                    }).start();
+                })
                 // Settings / About
                 .addHorizontalLayout().children(row -> row
                         .addButton("cfgSettings").text(context.getString("dialog_settings_btn"))
@@ -727,9 +758,8 @@ public final class AiEditDialog {
                 )
                 .build();
 
-        final PluginEditText modelEdit = view.requireViewById("model");
-        modelRef[0] = modelEdit;
         providerSpinnerRef[0] = view.requireViewById("provider");
+        modelSpinnerRef[0] = view.requireViewById("model");
 
         final PluginDialog cfgDialog = pluginUI.buildDialog()
                 .setTitle(context.getString("dialog_config_btn"))
@@ -740,8 +770,7 @@ public final class AiEditDialog {
                     Prefs.putString(prefs, Prefs.KEY_ACTIVE_PROFILE, profile);
                     Prefs.putString(prefs, profileKeyPrefix(profile) + "provider",
                             providerIds.get(providerSel[0]));
-                    String m = modelEdit.getText() == null ? "" : modelEdit.getText().toString().trim();
-                    Prefs.putString(prefs, profileKeyPrefix(profile) + "model", m);
+                    Prefs.putString(prefs, profileKeyPrefix(profile) + "model", selectedModel[0]);
                     onSaved.run();
                     dialog.dismiss();
                 })

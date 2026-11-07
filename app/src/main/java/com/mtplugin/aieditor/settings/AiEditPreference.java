@@ -1,5 +1,6 @@
 package com.mtplugin.aieditor.settings;
 
+import android.content.SharedPreferences;
 import android.text.InputType;
 
 import com.mtplugin.aieditor.Prefs;
@@ -9,6 +10,8 @@ import com.mtplugin.aieditor.ui.AboutDialog;
 import bin.mt.plugin.api.PluginContext;
 import bin.mt.plugin.api.preference.PluginPreference;
 import bin.mt.plugin.api.ui.PluginUI;
+
+import java.util.List;
 
 /**
  * Plugin main settings interface (PluginPreference).
@@ -55,9 +58,27 @@ public class AiEditPreference implements PluginPreference {
         builder.addInput("Endpoint", Prefs.KEY_BASE_URL)
                 .hint("Example: https://api.deepseek.com/v1")
                 .valueAsSummary();
-        builder.addInput("Default model", Prefs.KEY_MODEL)
+        // Dynamic model dropdown for Profile 1 (preset + fetched models)
+        SharedPreferences prefs1 = pluginUI.getContext().getPreferences();
+        String providerId1 = prefs1.getString(Prefs.KEY_PROVIDER, "deepseek");
+        List<String> models1 = ProviderRegistry.getAllModels(prefs1, ProviderRegistry.findById(providerId1));
+        String currentModel1 = prefs1.getString(Prefs.KEY_MODEL, "deepseek-chat");
+        builder.addList("Default model", Prefs.KEY_MODEL)
                 .defaultValue("deepseek-chat")
                 .valueAsSummary();
+        for (String m : models1) {
+            builder.addItem(m, m);
+        }
+        // Ensure current model is selectable even if not in fetched list
+        boolean currentInList = models1.contains(currentModel1);
+        if (!currentInList && currentModel1 != null && !currentModel1.isEmpty()) {
+            builder.addItem(currentModel1, currentModel1);
+        }
+        // Refresh model list for Profile 1
+        builder.addText("Refresh model list (Profile 1)")
+                .summary("Fetch latest available models from the configured provider endpoint")
+                .onClick((pluginUI, item) -> refreshModelsForProfile(pluginUI, Prefs.KEY_PROVIDER,
+                        Prefs.KEY_API_KEY, Prefs.KEY_BASE_URL));
         builder.addSwitch("Show token usage", Prefs.KEY_SHOW_TOKENS)
                 .defaultValue(true)
                 .summaryOn("Show input/output tokens for this request in status bar after request ends")
@@ -74,9 +95,26 @@ public class AiEditPreference implements PluginPreference {
         builder.addInput("Endpoint", "p2_base_url")
                 .hint("Leave empty to auto-use provider's default endpoint")
                 .valueAsSummary();
-        builder.addInput("Model", "p2_model")
+        // Dynamic model dropdown for Profile 2 (preset + fetched models)
+        SharedPreferences prefs2 = pluginUI.getContext().getPreferences();
+        String providerId2 = prefs2.getString("p2_provider", "deepseek");
+        List<String> models2 = ProviderRegistry.getAllModels(prefs2, ProviderRegistry.findById(providerId2));
+        String currentModel2 = prefs2.getString("p2_model", "deepseek-chat");
+        builder.addList("Model", "p2_model")
                 .defaultValue("deepseek-chat")
                 .valueAsSummary();
+        for (String m : models2) {
+            builder.addItem(m, m);
+        }
+        boolean currentInList2 = models2.contains(currentModel2);
+        if (!currentInList2 && currentModel2 != null && !currentModel2.isEmpty()) {
+            builder.addItem(currentModel2, currentModel2);
+        }
+        // Refresh model list for Profile 2
+        builder.addText("Refresh model list (Profile 2)")
+                .summary("Fetch latest available models from the configured provider endpoint")
+                .onClick((pluginUI, item) -> refreshModelsForProfile(pluginUI, "p2_provider",
+                        "p2_api_key", "p2_base_url"));
 
         // ===== Profile 3 =====
         builder.addHeader("Profile 3 · Connection");
@@ -89,9 +127,26 @@ public class AiEditPreference implements PluginPreference {
         builder.addInput("Endpoint", "p3_base_url")
                 .hint("Leave empty to auto-use provider's default endpoint")
                 .valueAsSummary();
-        builder.addInput("Model", "p3_model")
+        // Dynamic model dropdown for Profile 3 (preset + fetched models)
+        SharedPreferences prefs3 = pluginUI.getContext().getPreferences();
+        String providerId3 = prefs3.getString("p3_provider", "deepseek");
+        List<String> models3 = ProviderRegistry.getAllModels(prefs3, ProviderRegistry.findById(providerId3));
+        String currentModel3 = prefs3.getString("p3_model", "deepseek-chat");
+        builder.addList("Model", "p3_model")
                 .defaultValue("deepseek-chat")
                 .valueAsSummary();
+        for (String m : models3) {
+            builder.addItem(m, m);
+        }
+        boolean currentInList3 = models3.contains(currentModel3);
+        if (!currentInList3 && currentModel3 != null && !currentModel3.isEmpty()) {
+            builder.addItem(currentModel3, currentModel3);
+        }
+        // Refresh model list for Profile 3
+        builder.addText("Refresh model list (Profile 3)")
+                .summary("Fetch latest available models from the configured provider endpoint")
+                .onClick((pluginUI, item) -> refreshModelsForProfile(pluginUI, "p3_provider",
+                        "p3_api_key", "p3_base_url"));
 
         // ===== Generation parameters =====
         builder.addHeader("Generation Parameters");
@@ -200,5 +255,42 @@ public class AiEditPreference implements PluginPreference {
     /** Get display name of provider preset */
     private static String presetId(String id) {
         return ProviderRegistry.findById(id).name;
+    }
+
+    /** Fetch and cache the latest model list for a profile's provider */
+    private static void refreshModelsForProfile(PluginUI pluginUI, String providerKey,
+                                                String apiKeyKey, String baseUrlKey) {
+        SharedPreferences prefs = pluginUI.getContext().getPreferences();
+        String providerId = prefs.getString(providerKey, "deepseek");
+        String apiKey = prefs.getString(apiKeyKey, "");
+        String baseUrl = prefs.getString(baseUrlKey, "");
+
+        ProviderRegistry.Provider provider = ProviderRegistry.findById(providerId);
+        if (provider == null) {
+            pluginUI.showToast("Unknown provider: " + providerId);
+            return;
+        }
+
+        // Use the profile's custom endpoint if set, otherwise fall back to the preset default
+        String endpoint = (baseUrl != null && !baseUrl.isEmpty())
+                ? baseUrl : provider.defaultBaseUrl;
+
+        if (endpoint == null || endpoint.isEmpty()) {
+            pluginUI.showToast("No endpoint configured for " + provider.name);
+            return;
+        }
+
+        pluginUI.showToast("Fetching models from " + provider.name + "...");
+
+        List<String> models = ProviderRegistry.fetchModelsFromEndpoint(endpoint, apiKey);
+        if (models == null || models.isEmpty()) {
+            pluginUI.showToast("Failed to fetch models from " + provider.name
+                    + ". Check your endpoint and API key.");
+            return;
+        }
+
+        ProviderRegistry.putCachedModels(prefs, providerId, models);
+        pluginUI.showToast("Fetched " + models.size() + " models for " + provider.name
+                + ". They are now available in the model dropdown.");
     }
 }
