@@ -57,22 +57,15 @@ public class AiEditPreference implements PluginPreference {
         builder.addInput("Endpoint", Prefs.KEY_BASE_URL)
                 .hint("Example: https://api.deepseek.com/v1")
                 .valueAsSummary();
-        // Dynamic model dropdown for Profile 1 (preset + fetched models)
+        // Model input for Profile 1
         SharedPreferences prefs1 = context.getPreferences();
         String providerId1 = prefs1.getString(Prefs.KEY_PROVIDER, "deepseek");
-        java.util.List<String> models1 = ProviderRegistry.getAllModels(prefs1, ProviderRegistry.findById(providerId1));
-        String currentModel1 = prefs1.getString(Prefs.KEY_MODEL, "deepseek-chat");
-        var mlb1 = builder.addList("Default model", Prefs.KEY_MODEL)
+        int modelCount1 = ProviderRegistry.getAllModels(prefs1, ProviderRegistry.findById(providerId1)).size();
+        builder.addInput("Default model", Prefs.KEY_MODEL)
                 .defaultValue("deepseek-chat")
-                .summary("Select or type a model name");
-        for (String m : models1) {
-            mlb1.addItem(m, m);
-        }
-        // Ensure current model is selectable even if not in fetched list
-        boolean currentInList1 = models1.contains(currentModel1);
-        if (!currentInList1 && currentModel1 != null && !currentModel1.isEmpty()) {
-            mlb1.addItem(currentModel1, currentModel1);
-        }
+                .hint("Model name (e.g. deepseek-chat, openrouter/free, nvidia/nemotron-3.5-super-vl)")
+                .summary(modelCount1 + " models available. Tap 'Refresh model list' below to update from provider endpoint.")
+                .valueAsSummary();
         // Refresh model list for Profile 1
         builder.addText("Refresh model list (Profile 1)")
                 .summary("Fetch latest available models from the configured provider endpoint")
@@ -94,21 +87,15 @@ public class AiEditPreference implements PluginPreference {
         builder.addInput("Endpoint", "p2_base_url")
                 .hint("Leave empty to auto-use provider's default endpoint")
                 .valueAsSummary();
-        // Dynamic model dropdown for Profile 2 (preset + fetched models)
+        // Model input for Profile 2
         SharedPreferences prefs2 = context.getPreferences();
         String providerId2 = prefs2.getString("p2_provider", "deepseek");
-        java.util.List<String> models2 = ProviderRegistry.getAllModels(prefs2, ProviderRegistry.findById(providerId2));
-        String currentModel2 = prefs2.getString("p2_model", "deepseek-chat");
-        var mlb2 = builder.addList("Model", "p2_model")
+        int modelCount2 = ProviderRegistry.getAllModels(prefs2, ProviderRegistry.findById(providerId2)).size();
+        builder.addInput("Model", "p2_model")
                 .defaultValue("deepseek-chat")
-                .summary("Select or type a model name");
-        for (String m : models2) {
-            mlb2.addItem(m, m);
-        }
-        boolean currentInList2 = models2.contains(currentModel2);
-        if (!currentInList2 && currentModel2 != null && !currentModel2.isEmpty()) {
-            mlb2.addItem(currentModel2, currentModel2);
-        }
+                .hint("Model name (e.g. deepseek-chat, openrouter/free, nvidia/nemotron-3.5-super-vl)")
+                .summary(modelCount2 + " models available. Tap 'Refresh model list' below to update from provider endpoint.")
+                .valueAsSummary();
         // Refresh model list for Profile 2
         builder.addText("Refresh model list (Profile 2)")
                 .summary("Fetch latest available models from the configured provider endpoint")
@@ -126,21 +113,15 @@ public class AiEditPreference implements PluginPreference {
         builder.addInput("Endpoint", "p3_base_url")
                 .hint("Leave empty to auto-use provider's default endpoint")
                 .valueAsSummary();
-        // Dynamic model dropdown for Profile 3 (preset + fetched models)
+        // Model input for Profile 3
         SharedPreferences prefs3 = context.getPreferences();
         String providerId3 = prefs3.getString("p3_provider", "deepseek");
-        java.util.List<String> models3 = ProviderRegistry.getAllModels(prefs3, ProviderRegistry.findById(providerId3));
-        String currentModel3 = prefs3.getString("p3_model", "deepseek-chat");
-        var mlb3 = builder.addList("Model", "p3_model")
+        int modelCount3 = ProviderRegistry.getAllModels(prefs3, ProviderRegistry.findById(providerId3)).size();
+        builder.addInput("Model", "p3_model")
                 .defaultValue("deepseek-chat")
-                .summary("Select or type a model name");
-        for (String m : models3) {
-            mlb3.addItem(m, m);
-        }
-        boolean currentInList3 = models3.contains(currentModel3);
-        if (!currentInList3 && currentModel3 != null && !currentModel3.isEmpty()) {
-            mlb3.addItem(currentModel3, currentModel3);
-        }
+                .hint("Model name (e.g. deepseek-chat, openrouter/free, nvidia/nemotron-3.5-super-vl)")
+                .summary(modelCount3 + " models available. Tap 'Refresh model list' below to update from provider endpoint.")
+                .valueAsSummary();
         // Refresh model list for Profile 3
         builder.addText("Refresh model list (Profile 3)")
                 .summary("Fetch latest available models from the configured provider endpoint")
