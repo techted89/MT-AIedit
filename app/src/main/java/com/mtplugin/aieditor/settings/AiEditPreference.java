@@ -11,7 +11,7 @@ import bin.mt.plugin.api.PluginContext;
 import bin.mt.plugin.api.preference.PluginPreference;
 import bin.mt.plugin.api.ui.PluginUI;
 
-import java.util.List;
+
 
 /**
  * Plugin main settings interface (PluginPreference).
@@ -61,11 +61,11 @@ public class AiEditPreference implements PluginPreference {
         // Dynamic model dropdown for Profile 1 (preset + fetched models)
         SharedPreferences prefs1 = context.getPreferences();
         String providerId1 = prefs1.getString(Prefs.KEY_PROVIDER, "deepseek");
-        List<String> models1 = ProviderRegistry.getAllModels(prefs1, ProviderRegistry.findById(providerId1));
+        java.util.List<String> models1 = ProviderRegistry.getAllModels(prefs1, ProviderRegistry.findById(providerId1));
         String currentModel1 = prefs1.getString(Prefs.KEY_MODEL, "deepseek-chat");
         builder.addList("Default model", Prefs.KEY_MODEL)
                 .defaultValue("deepseek-chat")
-                .valueAsSummary();
+                .summary("Select or type a model name");
         for (String m : models1) {
             builder.addItem(m, m);
         }
@@ -98,11 +98,11 @@ public class AiEditPreference implements PluginPreference {
         // Dynamic model dropdown for Profile 2 (preset + fetched models)
         SharedPreferences prefs2 = context.getPreferences();
         String providerId2 = prefs2.getString("p2_provider", "deepseek");
-        List<String> models2 = ProviderRegistry.getAllModels(prefs2, ProviderRegistry.findById(providerId2));
+        java.util.List<String> models2 = ProviderRegistry.getAllModels(prefs2, ProviderRegistry.findById(providerId2));
         String currentModel2 = prefs2.getString("p2_model", "deepseek-chat");
         builder.addList("Model", "p2_model")
                 .defaultValue("deepseek-chat")
-                .valueAsSummary();
+                .summary("Select or type a model name");
         for (String m : models2) {
             builder.addItem(m, m);
         }
@@ -130,11 +130,11 @@ public class AiEditPreference implements PluginPreference {
         // Dynamic model dropdown for Profile 3 (preset + fetched models)
         SharedPreferences prefs3 = context.getPreferences();
         String providerId3 = prefs3.getString("p3_provider", "deepseek");
-        List<String> models3 = ProviderRegistry.getAllModels(prefs3, ProviderRegistry.findById(providerId3));
+        java.util.List<String> models3 = ProviderRegistry.getAllModels(prefs3, ProviderRegistry.findById(providerId3));
         String currentModel3 = prefs3.getString("p3_model", "deepseek-chat");
         builder.addList("Model", "p3_model")
                 .defaultValue("deepseek-chat")
-                .valueAsSummary();
+                .summary("Select or type a model name");
         for (String m : models3) {
             builder.addItem(m, m);
         }
