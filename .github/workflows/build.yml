@@ -1,9 +1,9 @@
-# Remote runner build: compiles the MT-AIedit .mtp plugin package on a self-hosted runner
-# Usage: Repository Actions tab -> manually run "Build MTP (Remote Runner)", or auto-triggered on push
+# Remote runner build: compiles the MT-AIedit .mtp plugin package on a GitHub-hosted runner
+# Usage: Repository Actions tab -> manually run "Build MTP (Ubuntu Latest)", or auto-triggered on push
 # Artifacts: Actions -> This run -> Artifacts -> mtai-editor-mtp.zip download
 # Release: Auto-creates a draft GitHub Release on tagged pushes
 
-name: Build MTP (Remote Runner)
+name: Build MTP (Ubuntu Latest)
 
 on:
   push:
@@ -20,7 +20,7 @@ on:
 
 jobs:
   build:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     timeout-minutes: 60
 
     steps:
@@ -66,7 +66,7 @@ jobs:
 
   release:
     needs: build
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     permissions:
       contents: write
