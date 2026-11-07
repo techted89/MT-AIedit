@@ -68,8 +68,8 @@ public final class ProviderRegistry {
     private static final MediaType JSON = MediaType.parse("application/json; charset=utf-8");
 
     private static final OkHttpClient HTTP_CLIENT = new OkHttpClient.Builder()
-            .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
-            .readTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+            .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
             .build();
 
     private static final List<Provider> PRESETS = Arrays.asList(
@@ -403,5 +403,58 @@ public final class ProviderRegistry {
         } catch (Exception e) {
             return "Error: " + (e.getMessage() != null ? e.getMessage() : e.toString());
         }
+    }
+
+    /**
+     * Normalize a base URL by stripping known API path suffixes that users might
+     * include when typing the endpoint manually.
+     *
+     * Examples:
+     *   "https://api.openai.com/v1/chat/completions" → "https://api.openai.com/v1"
+     *   "https://openrouter.ai/api/v1/chat/completions" → "https://openrouter.ai/api/v1"
+     *   "https://api.anthropic.com/v1/messages" → "https://api.anthropic.com/v1"
+     *   "https://api.openai.com/v1" → "https://api.openai.com/v1" (no change)
+     *
+     * @param baseUrl The raw endpoint URL from user input
+     * @return Normalized base URL without trailing API path segments
+     */
+    public static String normalizeBaseUrl(String baseUrl) {
+        if (baseUrl == null || baseUrl.isEmpty()) {
+            return baseUrl;
+        }
+        String url = baseUrl.trim();
+        // Remove trailing slash
+        while (url.endsWith("/")) {
+            url = url.substring(0, url.length() - 1);
+        }
+        // Strip known API path suffixes
+        String[] suffixes = {
+                "/chat/completions",
+                "/v1/chat/completions",
+                "/messages",
+                "/v1/messages",
+                "/streamGenerateContent",
+                "/v1",
+        };
+        for (String suffix : suffixes) {
+            if (url.endsWith(suffix)) {
+                url = url.substring(0, url.length() - suffix.length());
+                // Remove trailing slash again after stripping
+                while (url.endsWith("/")) {
+                    url = url.substring(0, url.length() - 1);
+                }
+                break; // Only strip one suffix
+            }
+        }
+        return url;
+    }
+
+    /**
+     * Get the protocol for a given provider ID.
+     * @return The protocol string, or Protocol.OPENAI as default
+     */
+    public static String getProtocolForProvider(String providerId) {
+        Provider p = findById(providerId);
+        return p != null ? p.protocol : Protocol.OPENAI;
     }
 }

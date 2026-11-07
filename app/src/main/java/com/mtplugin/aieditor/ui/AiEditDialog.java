@@ -278,8 +278,10 @@ public final class AiEditDialog {
             final String providerId = cfg[0];
             final String apiKey = cfg[1];
             final ProviderRegistry.Provider provider = ProviderRegistry.findById(providerId);
-            final String baseUrl = cfg[2].trim().isEmpty() && provider != null
+            final String rawBaseUrl = cfg[2].trim().isEmpty() && provider != null
                     ? provider.defaultBaseUrl : cfg[2].trim();
+            // Normalize endpoint: strip /chat/completions, /v1, etc. to avoid double-appending
+            final String baseUrl = ProviderRegistry.normalizeBaseUrl(rawBaseUrl);
             final String protocol = "custom".equals(providerId)
                     ? readProtocol(prefs, profileId(profileSel[0]))
                     : provider.protocol;
@@ -767,7 +769,9 @@ public final class AiEditDialog {
                     String pid = providerIds.get(providerSel[0]);
                     String ak = prefs.getString(profileKeyPrefix(profileId(profileSel[0])) + "api_key", "");
                     String bu = prefs.getString(profileKeyPrefix(profileId(profileSel[0])) + "base_url", "");
-                    String ep = (bu != null && !bu.isEmpty()) ? bu : ProviderRegistry.findById(pid).defaultBaseUrl;
+                    // Normalize endpoint: strip /chat/completions, /v1, etc.
+                    String ep = ProviderRegistry.normalizeBaseUrl(
+                            (bu != null && !bu.isEmpty()) ? bu : ProviderRegistry.findById(pid).defaultBaseUrl);
                     pluginUI.showToast("Fetching models from " + pid + "...");
                     new Thread(() -> {
                         ProviderRegistry.ModelFetchResult result = ProviderRegistry.fetchModelsFromEndpoint(pid, ep, ak);

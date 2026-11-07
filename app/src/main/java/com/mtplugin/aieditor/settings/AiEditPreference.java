@@ -48,7 +48,6 @@ public class AiEditPreference implements PluginPreference {
         // ===== Profile 1 =====
         builder.addHeader("Profile 1 · Connection");
         addProviderList(builder, "Provider", Prefs.KEY_PROVIDER);
-        addProtocolList(builder, Prefs.KEY_PROTOCOL);
         builder.addInput("API Key", Prefs.KEY_API_KEY)
                 .hint("sk-... (Ollama local can be left empty)")
                 .summary("***********")
@@ -90,7 +89,6 @@ public class AiEditPreference implements PluginPreference {
         // ===== Profile 2 =====
         builder.addHeader("Profile 2 · Connection");
         addProviderList(builder, "Provider", "p2_provider");
-        addProtocolList(builder, "p2_protocol");
         builder.addInput("API Key", "p2_api_key")
                 .hint("sk-... (Ollama local can be left empty)")
                 .summary("***********")
@@ -126,7 +124,6 @@ public class AiEditPreference implements PluginPreference {
         // ===== Profile 3 =====
         builder.addHeader("Profile 3 · Connection");
         addProviderList(builder, "Provider", "p3_provider");
-        addProtocolList(builder, "p3_protocol");
         builder.addInput("API Key", "p3_api_key")
                 .hint("sk-... (Ollama local can be left empty)")
                 .summary("***********")
@@ -249,16 +246,6 @@ public class AiEditPreference implements PluginPreference {
                 .addItem(presetId("custom"), "custom");
     }
 
-    /** Interface protocol dropdown (shared by profiles): effective for custom providers, determines which protocol to use */
-    private void addProtocolList(Builder builder, String key) {
-        builder.addList("Interface protocol (effective for custom providers)", key)
-                .defaultValue("openai")
-                .summary("OpenAI-compatible covers OpenAI/DeepSeek/Qwen/Kimi/GLM/SiliconFlow/Ollama and any proxy")
-                .addItem("OpenAI-compatible (/chat/completions)", "openai")
-                .addItem("Anthropic Claude (/messages)", "claude")
-                .addItem("Google Gemini (streamGenerateContent)", "gemini");
-    }
-
     /** Click to apply system prompt preset */
     private static void applyPreset(PluginUI pluginUI, String name, String template) {
         Prefs.putString(pluginUI.getContext().getPreferences(), Prefs.KEY_SYSTEM_PROMPT, template);
@@ -285,8 +272,11 @@ public class AiEditPreference implements PluginPreference {
         }
 
         // Use the profile's custom endpoint if set, otherwise fall back to the preset default
-        String endpoint = (baseUrl != null && !baseUrl.isEmpty())
+        String rawEndpoint = (baseUrl != null && !baseUrl.isEmpty())
                 ? baseUrl : provider.defaultBaseUrl;
+
+        // Normalize endpoint: strip /chat/completions, /v1, etc. to avoid double-appending
+        String endpoint = ProviderRegistry.normalizeBaseUrl(rawEndpoint);
 
         if (endpoint == null || endpoint.isEmpty()) {
             pluginUI.showToast("No endpoint configured for " + provider.name);
@@ -323,8 +313,11 @@ public class AiEditPreference implements PluginPreference {
         }
 
         // Use the profile's custom endpoint if set, otherwise fall back to the preset default
-        String endpoint = (baseUrl != null && !baseUrl.isEmpty())
+        String rawEndpoint = (baseUrl != null && !baseUrl.isEmpty())
                 ? baseUrl : provider.defaultBaseUrl;
+
+        // Normalize endpoint: strip /chat/completions, /v1, etc.
+        String endpoint = ProviderRegistry.normalizeBaseUrl(rawEndpoint);
 
         if (endpoint == null || endpoint.isEmpty()) {
             pluginUI.showToast("No endpoint configured for " + provider.name);
